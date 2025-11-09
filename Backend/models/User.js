@@ -197,10 +197,5 @@ User.findByUuid = async function(uuid) {
   return await this.findOne({ where: { uuid } });
 };
 
-//Atualizar perfil do usuário
-User.updateProfile = async function(profileData) {
-  const user = await this.findByEmail(profileData.email);
-  
-};
 
 module.exports = User;

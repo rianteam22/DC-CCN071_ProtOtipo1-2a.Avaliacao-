@@ -85,25 +85,119 @@ app.post('/register', async (req, res) => {
   }
 });
 
-app.post('/profile', async (req, res) => {
-  const {name, user, email, senha, pic, description} = req.body;
 
-  if (!user || !email || !senha) {
-    return res.status(400).json({ 
-      error: 'user, email e senha são obrigatórios nao nulos' 
-    });
-  }
+//PUTs
+// app.js ou routes/user.js
 
+app.put('/profile/update', async (req, res) => {
   try {
-    const user = {
-      name: name,
-      user: user,
-      email: email,
-      senha: senha,
-      profile_pic: pic,
-      description: description
-    }
+    const { 
+      emailAtual,      // Email atual para identificar o usuário
+      novoEmail,       // Novo email (opcional)
+      senhaAtual,      // Senha atual (obrigatória se for mudar email ou senha)
+      novaSenha,       // Nova senha (opcional)
+      name, 
+      user,            // username
+      pic, 
+      description 
+    } = req.body;
+
+    //Buscar usuário
+    const usuario = await User.findByEmail(emailAtual);
     
+    if (!usuario) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+
+    // Array para armazenar quais campos foram alterados
+    const alteracoes = [];
+
+    // VALIDAÇÕES DE SEGURANÇA 
+    // validar senha
+    if ((novoEmail && novoEmail !== emailAtual) || novaSenha) {
+      if (!senhaAtual) {
+        return res.status(400).json({ 
+          error: 'Senha atual é obrigatória para alterar email ou senha' 
+        });
+      }
+      
+      const senhaValida = await usuario.validPassword(senhaAtual);
+      if (!senhaValida) {
+        return res.status(401).json({ error: 'Senha atual incorreta' });
+      }
+    }
+
+    //PREPARAR ALTERAÇÕES
+    
+    const updates = {};
+
+    // validar user
+    if (user && user !== usuario.user) {
+      const userExists = await User.findByUsername(user);
+      if (userExists) {
+        return res.status(400).json({ error: 'Username já cadastrado' });
+      }
+      updates.user = user;
+      alteracoes.push('username');
+    }
+
+    // validar email
+    if (novoEmail && novoEmail !== emailAtual) {
+      const emailExists = await User.findByEmail(novoEmail);
+      if (emailExists) {
+        return res.status(400).json({ error: 'Email já cadastrado' });
+      }
+      updates.email = novoEmail;
+      alteracoes.push('email');
+    }
+
+    // validar e atualizar senha
+    if (novaSenha) {
+      if (novaSenha.length < 6) {
+        return res.status(400).json({ 
+          error: 'Nova senha deve ter no mínimo 6 caracteres' 
+        });
+      }
+      updates.senha = novaSenha; 
+      alteracoes.push('senha');
+    }
+
+    //Atualizar campos de perfil 
+    if (name !== undefined && name !== usuario.name) {
+      updates.name = name;
+      alteracoes.push('nome');
+    }
+
+    if (pic !== undefined && pic !== usuario.profile_pic) {
+      updates.profile_pic = pic;
+      alteracoes.push('foto de perfil');
+    }
+
+    if (description !== undefined && description !== usuario.description) {
+      updates.description = description;
+      alteracoes.push('descrição');
+    }
+
+    // 4. VERIFICAR SE HÁ ALTERAÇÕES
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ 
+        message: 'Nenhuma alteração detectada' 
+      });
+    }
+
+    //APLICAR TODAS AS ALTERAÇÕES
+    
+    await usuario.update(updates);
+
+    // RESPONSE
+    
+    res.json({
+      message: 'Perfil atualizado com sucesso!',
+      alteracoes: alteracoes, 
+      user: usuario.toJSON()
+    });
+
   } catch (error) {
     console.error('Erro ao atualizar perfil:', error);
     res.status(500).json({ 
@@ -111,4 +205,11 @@ app.post('/profile', async (req, res) => {
       details: error.message 
     });
   }
+});
+
+
+initDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  });
 });
