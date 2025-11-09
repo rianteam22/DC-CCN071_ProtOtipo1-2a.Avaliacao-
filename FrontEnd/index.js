@@ -2,7 +2,6 @@
 // Application State
 const appState = {
     currentUser: null,
-    users: [],
     userItems: {}
 };
 
@@ -23,11 +22,19 @@ function showError(elementId, message) {
     }, 3000);
 }
 
-function generateId() {
-    return 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+function showSuccess(elementId, message) {
+    const errorElement = document.getElementById(elementId);
+    errorElement.textContent = message;
+    errorElement.style.color = '#22c55e';
+    errorElement.classList.add('show');
+    setTimeout(() => {
+        errorElement.classList.remove('show');
+        errorElement.style.color = '';
+    }, 3000);
 }
 
-function formatDate(date) {
+function formatDate(dateString) {
+    const date = new Date(dateString);
     return new Intl.DateTimeFormat('pt-BR', {
         day: '2-digit',
         month: '2-digit',
@@ -38,19 +45,18 @@ function formatDate(date) {
 }
 
 // Login Page
-document.getElementById('loginForm').addEventListener('submit', (e) => {
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
 
-    const user = appState.users.find(u => u.email === email && u.password === password);
-
-    if (user) {
-        appState.currentUser = user;
+    try {
+        const response = await login(email, password);
+        appState.currentUser = response.user;
         renderDashboard();
         showPage('dashboardPage');
-    } else {
-        showError('loginError', 'Email ou senha incorretos');
+    } catch (error) {
+        showError('loginError', error.message || 'Email ou senha incorretos');
     }
 });
 
@@ -60,36 +66,29 @@ document.getElementById('goToSignup').addEventListener('click', () => {
 });
 
 // Signup Page
-document.getElementById('signupForm').addEventListener('submit', (e) => {
+document.getElementById('signupForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('signupEmail').value.trim();
     const password = document.getElementById('signupPassword').value;
 
-    if (appState.users.find(u => u.email === email)) {
-        showError('signupError', 'Este email já está cadastrado');
-        return;
+    try {
+        const response = await register(email, password);
+        appState.currentUser = response.user;
+        appState.userItems[response.user.uuid] = [];
+
+        // Populate profile form
+        document.getElementById('profileEmail').value = email;
+        if (response.user.timestamp_created) {
+            document.getElementById('profileCreatedAt').value = formatDate(response.user.timestamp_created);
+        }
+
+        showSuccess('signupError', 'Conta criada com sucesso!');
+        setTimeout(() => {
+            showPage('profilePage');
+        }, 1000);
+    } catch (error) {
+        showError('signupError', error.message || 'Erro ao criar conta');
     }
-
-    const newUser = {
-        id: generateId(),
-        email: email,
-        password: password,
-        createdAt: new Date(),
-        name: '',
-        username: '',
-        description: '',
-        photo: null
-    };
-
-    appState.users.push(newUser);
-    appState.currentUser = newUser;
-    appState.userItems[newUser.id] = [];
-
-    // Populate profile form
-    document.getElementById('profileEmail').value = email;
-    document.getElementById('profileCreatedAt').value = formatDate(newUser.createdAt);
-
-    showPage('profilePage');
 });
 
 document.getElementById('backToLoginFromSignup').addEventListener('click', () => {
@@ -112,26 +111,53 @@ document.getElementById('photoInput').addEventListener('change', (e) => {
             photoDisplay.style.backgroundSize = 'cover';
             photoDisplay.style.backgroundPosition = 'center';
             document.getElementById('photoPlaceholder').style.display = 'none';
-            appState.currentUser.photo = event.target.result;
+            // Armazenar base64 temporariamente (em produção, fazer upload real)
+            appState.currentUser.profile_pic = event.target.result;
         };
         reader.readAsDataURL(file);
     }
 });
 
-document.getElementById('profileForm').addEventListener('submit', (e) => {
+document.getElementById('profileForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    appState.currentUser.name = document.getElementById('profileName').value.trim();
-    appState.currentUser.username = document.getElementById('profileUsername').value.trim();
-    appState.currentUser.description = document.getElementById('profileDescription').value.trim();
-    
+
+    const name = document.getElementById('profileName').value.trim();
+    const username = document.getElementById('profileUsername').value.trim();
+    const description = document.getElementById('profileDescription').value.trim();
     const newPassword = document.getElementById('profilePassword').value;
+
+    const profileData = {
+        emailAtual: appState.currentUser.email,
+        name: name,
+        user: username,
+        description: description,
+        pic: appState.currentUser.profile_pic || null
+    };
+
+    // Se tiver nova senha, adicionar ao payload
     if (newPassword) {
-        appState.currentUser.password = newPassword;
+        // Para atualizar senha, precisamos da senha atual
+        // Por simplicidade, vamos pedir a senha atual em um prompt
+        const senhaAtual = prompt('Digite sua senha atual para confirmar a alteração:');
+        if (!senhaAtual) {
+            showError('profileError', 'Senha atual é necessária para alterar dados');
+            return;
+        }
+        profileData.senhaAtual = senhaAtual;
+        profileData.novaSenha = newPassword;
     }
 
-    renderDashboard();
-    showPage('dashboardPage');
+    try {
+        const response = await updateProfile(profileData);
+        appState.currentUser = response.user;
+        showSuccess('profileError', response.message || 'Perfil atualizado com sucesso!');
+        setTimeout(() => {
+            renderDashboard();
+            showPage('dashboardPage');
+        }, 1000);
+    } catch (error) {
+        showError('profileError', error.message || 'Erro ao atualizar perfil');
+    }
 });
 
 document.getElementById('skipProfile').addEventListener('click', () => {
@@ -142,8 +168,8 @@ document.getElementById('skipProfile').addEventListener('click', () => {
 // Dashboard Page
 function renderDashboard() {
     const itemsContainer = document.getElementById('itemsContainer');
-    const userId = appState.currentUser.id;
-    
+    const userId = appState.currentUser.uuid || appState.currentUser.id;
+
     if (!appState.userItems[userId]) {
         appState.userItems[userId] = [];
     }
@@ -170,15 +196,15 @@ function renderDashboard() {
 
 document.getElementById('searchInput').addEventListener('input', (e) => {
     const searchTerm = e.target.value.toLowerCase().trim();
-    const userId = appState.currentUser.id;
+    const userId = appState.currentUser.uuid || appState.currentUser.id;
     const items = appState.userItems[userId] || [];
-    
-    const filteredItems = items.filter(item => 
+
+    const filteredItems = items.filter(item =>
         item.name.toLowerCase().includes(searchTerm)
     );
 
     const itemsContainer = document.getElementById('itemsContainer');
-    
+
     if (filteredItems.length === 0) {
         itemsContainer.innerHTML = `
             <div class="empty-state">
@@ -197,26 +223,41 @@ document.getElementById('searchInput').addEventListener('input', (e) => {
     `).join('');
 });
 
-document.getElementById('profileBtn').addEventListener('click', () => {
-    // Populate profile form with current user data
-    document.getElementById('profileEmail').value = appState.currentUser.email;
-    document.getElementById('profileName').value = appState.currentUser.name || '';
-    document.getElementById('profileUsername').value = appState.currentUser.username || '';
-    document.getElementById('profileDescription').value = appState.currentUser.description || '';
-    document.getElementById('profileCreatedAt').value = formatDate(appState.currentUser.createdAt);
-    
-    if (appState.currentUser.photo) {
-        const photoDisplay = document.getElementById('profilePhotoDisplay');
-        photoDisplay.style.backgroundImage = `url(${appState.currentUser.photo})`;
-        photoDisplay.style.backgroundSize = 'cover';
-        photoDisplay.style.backgroundPosition = 'center';
-        document.getElementById('photoPlaceholder').style.display = 'none';
+document.getElementById('profileBtn').addEventListener('click', async () => {
+    try {
+        // Buscar dados atualizados do backend
+        const response = await getProfile(appState.currentUser.email);
+        appState.currentUser = response.user;
+
+        // Populate profile form with current user data
+        document.getElementById('profileEmail').value = appState.currentUser.email;
+        document.getElementById('profileName').value = appState.currentUser.name || '';
+        document.getElementById('profileUsername').value = appState.currentUser.user || '';
+        document.getElementById('profileDescription').value = appState.currentUser.description || '';
+        document.getElementById('profileCreatedAt').value = formatDate(appState.currentUser.timestamp_created);
+
+        if (appState.currentUser.profile_pic) {
+            const photoDisplay = document.getElementById('profilePhotoDisplay');
+            photoDisplay.style.backgroundImage = `url(${appState.currentUser.profile_pic})`;
+            photoDisplay.style.backgroundSize = 'cover';
+            photoDisplay.style.backgroundPosition = 'center';
+            document.getElementById('photoPlaceholder').style.display = 'none';
+        }
+
+        showPage('profilePage');
+    } catch (error) {
+        console.error('Erro ao carregar perfil:', error);
+        // Mesmo com erro, mostrar a página de perfil com dados em cache
+        document.getElementById('profileEmail').value = appState.currentUser.email;
+        document.getElementById('profileName').value = appState.currentUser.name || '';
+        document.getElementById('profileUsername').value = appState.currentUser.user || '';
+        document.getElementById('profileDescription').value = appState.currentUser.description || '';
+        showPage('profilePage');
     }
-    
-    showPage('profilePage');
 });
 
 document.getElementById('logoutBtn').addEventListener('click', () => {
+    logout();
     appState.currentUser = null;
     document.getElementById('loginForm').reset();
     document.getElementById('profileForm').reset();
@@ -227,38 +268,17 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
     showPage('loginPage');
 });
 
-// Initialize with demo data (optional - remove in production)
-function initDemoData() {
-    const demoUser = {
-        id: generateId(),
-        email: 'demo@aws.com',
-        password: 'demo123',
-        createdAt: new Date(),
-        name: 'Usuário Demo',
-        username: 'demo_user',
-        description: 'Conta de demonstração',
-        photo: null
-    };
-
-    appState.users.push(demoUser);
-    appState.userItems[demoUser.id] = [
-        {
-            name: 'Documento.pdf',
-            createdAt: new Date('2024-01-15'),
-            size: '2.5 MB'
-        },
-        {
-            name: 'Imagem.jpg',
-            createdAt: new Date('2024-02-20'),
-            size: '1.8 MB'
-        },
-        {
-            name: 'Apresentacao.pptx',
-            createdAt: new Date('2024-03-10'),
-            size: '4.2 MB'
-        }
-    ];
+// Initialize app - Check if user is already logged in
+function initApp() {
+    const savedUser = getUser();
+    if (savedUser) {
+        appState.currentUser = savedUser;
+        renderDashboard();
+        showPage('dashboardPage');
+    } else {
+        showPage('loginPage');
+    }
 }
 
-// Initialize app
-initDemoData();
+// Initialize app when page loads
+initApp();

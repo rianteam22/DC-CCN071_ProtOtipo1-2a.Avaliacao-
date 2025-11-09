@@ -20,6 +20,8 @@
 // EMAIL / USER / SENHA / NAME / PROFILE_PIC / DESCRIPTION / TIMESTAMP_CREATED / UUID
 
 const express = require('express');
+const cors = require('cors');
+const path = require('path');
 const app = express();
 const sequelize = require('./config/database');
 const User = require('./models/User')
@@ -27,7 +29,11 @@ const User = require('./models/User')
 const PORT = process.env.PORT || 3333;
 
 //middleware
+app.use(cors());
 app.use(express.json());
+
+// Servir arquivos estáticos do frontend
+app.use(express.static(path.join(__dirname, '..', 'FrontEnd')));
 
 // INICIALIZAR BANCO DE DADOS
 async function initDatabase() {
@@ -85,6 +91,77 @@ app.post('/register', async (req, res) => {
   }
 });
 
+app.post('/login', async (req, res) => {
+  try {
+    const { email, senha } = req.body;
+
+    // Validar campos obrigatórios
+    if (!email || !senha) {
+      return res.status(400).json({
+        error: 'Email e senha são obrigatórios'
+      });
+    }
+
+    // Buscar usuário por email
+    const usuario = await User.findByEmail(email);
+    if (!usuario) {
+      return res.status(401).json({
+        error: 'Email ou senha incorretos'
+      });
+    }
+
+    // Verificar senha
+    const senhaValida = await usuario.validPassword(senha);
+    if (!senhaValida) {
+      return res.status(401).json({
+        error: 'Email ou senha incorretos'
+      });
+    }
+
+    res.json({
+      message: 'Login realizado com sucesso!',
+      user: usuario.toJSON()
+    });
+
+  } catch (error) {
+    console.error('Erro ao fazer login:', error);
+    res.status(500).json({
+      error: 'Erro ao fazer login',
+      details: error.message
+    });
+  }
+});
+
+//GETs
+app.get('/profile', async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({
+        error: 'Email é obrigatório'
+      });
+    }
+
+    const usuario = await User.findByEmail(email);
+    if (!usuario) {
+      return res.status(404).json({
+        error: 'Usuário não encontrado'
+      });
+    }
+
+    res.json({
+      user: usuario.toJSON()
+    });
+
+  } catch (error) {
+    console.error('Erro ao buscar perfil:', error);
+    res.status(500).json({
+      error: 'Erro ao buscar perfil',
+      details: error.message
+    });
+  }
+});
 
 //PUTs
 // app.js ou routes/user.js
