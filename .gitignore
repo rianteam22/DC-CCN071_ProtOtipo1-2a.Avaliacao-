@@ -1,0 +1,67 @@
+# Ignorar dependências e arquivos temporários do Node.js
+
+# Dependências
+node_modules/
+jspm_packages/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Runtime
+pids
+*.pid
+*.seed
+*.pid.lock
+.node_repl_history
+
+# Build / saída
+dist/
+build/
+out/
+.next/
+.nuxt/
+__sapper__/
+.svelte-kit/
+
+# Cobertura de testes
+coverage/
+.nyc_output/
+
+# Cache / artefatos
+.cache/
+.tmp/
+*.tgz
+
+# Ferramentas / bundlers
+.esbuild/
+.vite/
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+
+# TypeScript
+*.tsbuildinfo
+
+# Ambiente / segredos locais
+.env
+.env.*.local
+
+# IDEs / editores
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Outros arquivos temporários comuns
+*.log.*
+/npm-debug.log*
+/yarn-error.log*

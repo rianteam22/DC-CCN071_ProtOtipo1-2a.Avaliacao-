@@ -56,9 +56,9 @@ Criar pelo menos um repositório de código (GIT) para a aplicação Web. Lembre
 
 #### 3.2 Dashboard do Usuário
 
-- [ ] Desenvolver página dashboard para usuário autenticado
+- [x] Desenvolver página dashboard para usuário autenticado
 - [ ] Criar menu simplificado de navegação
-- [ ] Implementar edição de perfil do usuário
+- [x] Implementar edição de perfil do usuário
     - Nome completo
     - Username
     - E-mail
