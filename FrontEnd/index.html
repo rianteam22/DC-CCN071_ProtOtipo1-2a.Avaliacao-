@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS S33 Drives</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="page active">
+        <div class="login-page">
+            <div class="login-header">
+                <h1 class="app-title">AWS S33 Drives</h1>
+            </div>
+            <div class="login-card">
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label class="form-label" for="loginEmail">Email</label>
+                        <input 
+                            type="email" 
+                            id="loginEmail" 
+                            class="form-input" 
+                            placeholder="seu@email.com"
+                            required
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPassword">Senha</label>
+                        <input 
+                            type="password" 
+                            id="loginPassword" 
+                            class="form-input" 
+                            placeholder="••••••••"
+                            required
+                        />
+                    </div>
+                    <div id="loginError" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary">Entrar</button>
+                    <button type="button" class="btn btn-secondary" id="goToSignup">Criar Conta</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Signup Page -->
+    <div id="signupPage" class="page">
+        <div class="login-page">
+            <div class="login-header">
+                <h1 class="app-title">AWS S33 Drives</h1>
+                <button type="button" class="btn btn-secondary" id="backToLoginFromSignup" style="position: absolute; top: 20px; left: 20px; width: auto; padding: 8px 16px;">← Voltar</button>
+            </div>
+            <div class="login-card">
+                <h2 style="margin-bottom: var(--space-24); font-size: var(--font-size-2xl);">Criar Conta</h2>
+                <form id="signupForm">
+                    <div class="form-group">
+                        <label class="form-label" for="signupEmail">Email</label>
+                        <input 
+                            type="email" 
+                            id="signupEmail" 
+                            class="form-input" 
+                            placeholder="seu@email.com"
+                            required
+                        />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="signupPassword">Senha</label>
+                        <input 
+                            type="password" 
+                            id="signupPassword" 
+                            class="form-input" 
+                            placeholder="••••••••"
+                            required
+                        />
+                    </div>
+                    <div id="signupError" class="error-message"></div>
+                    <button type="submit" class="btn btn-primary">Criar Conta</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Page -->
+    <div id="profilePage" class="page">
+        <div class="container profile-page">
+            <div class="profile-header">
+                <h1 class="profile-title">Configurar Perfil</h1>
+            </div>
+            <div class="profile-container">
+                <div class="profile-photo-section">
+                    <div class="profile-photo" id="profilePhotoDisplay">
+                        <span id="photoPlaceholder">👤</span>
+                    </div>
+                    <p class="profile-photo-label">Foto do Perfil</p>
+                    <button type="button" class="btn btn-secondary btn-upload" id="uploadPhotoBtn">
+                        Escolher Foto
+                    </button>
+                    <input type="file" id="photoInput" accept="image/*" style="display: none;" />
+                </div>
+                <div class="profile-form-section">
+                    <form id="profileForm" class="profile-form">
+                        <div class="form-group">
+                            <label class="form-label" for="profileName">Nome Completo</label>
+                            <input 
+                                type="text" 
+                                id="profileName" 
+                                class="form-input" 
+                                placeholder="Seu nome completo"
+                                required
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profileUsername">Nome de Usuário</label>
+                            <input 
+                                type="text" 
+                                id="profileUsername" 
+                                class="form-input" 
+                                placeholder="nomedeusuario"
+                                required
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profileEmail">Email</label>
+                            <input 
+                                type="email" 
+                                id="profileEmail" 
+                                class="form-input" 
+                                readonly
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profileNewEmail">Novo Email</label>
+                            <input 
+                                type="email" 
+                                id="profileNewEmail" 
+                                class="form-input" 
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profilePassword">Nova Senha (opcional)</label>
+                            <input 
+                                type="password" 
+                                id="profilePassword" 
+                                class="form-input" 
+                                placeholder="••••••••"
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profileDescription">Descrição Pessoal</label>
+                            <textarea 
+                                id="profileDescription" 
+                                class="form-input" 
+                                placeholder="Conte um pouco sobre você..."
+                            ></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="profileCreatedAt">Data de Criação</label>
+                            <input 
+                                type="text" 
+                                id="profileCreatedAt" 
+                                class="form-input" 
+                                readonly
+                            />
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Salvar Perfil</button>
+                            <button type="button" class="btn btn-secondary" id="skipProfile">Pular</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Page -->
+    <div id="dashboardPage" class="page">
+        <div class="container dashboard-page">
+            <div class="dashboard-header">
+                <h1 class="dashboard-title">Meus Arquivos</h1>
+                <div style="display: flex; gap: 12px;">
+                    <button class="btn btn-secondary btn-logout" id="profileBtn">👤 Perfil</button>
+                    <button class="btn btn-secondary btn-logout" id="logoutBtn">Sair</button>
+                </div>
+            </div>
+            <div class="search-section">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    class="search-input" 
+                    placeholder="Buscar arquivos..."
+                />
+            </div>
+            <div class="items-list">
+                <h2 class="items-title">Seus Itens</h2>
+                <div id="itemsContainer">
+                    #TODO - Lista de Itens Carregados AWS S3
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="senhaModal" style="display:none; position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+  <div class="modal-card">
+    <h3>Digite sua senha atual:</h3>
+    <input type="password" id="senhaInput" style="margin-bottom:12px;width:100%;" autofocus>
+    <div class="modal-actions">
+      <button id="confirmSenhaBtn" class="btn btn-primary">Confirmar</button>
+      <button onclick="closeSenhaModal()" class="btn btn-secondary">Cancelar</button>
+    </div>
+  </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>
+
