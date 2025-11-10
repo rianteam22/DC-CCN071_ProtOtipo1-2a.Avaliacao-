@@ -39,6 +39,9 @@ const PORT = process.env.PORT || 3333;
 app.use(cors());
 app.use(express.json());
 
+// Servir arquivos estáticos do frontend
+app.use(express.static(path.join(__dirname, '..', 'FrontEnd')));
+
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];

@@ -1,4 +1,6 @@
-const server = 'http://localhost:3333';
+const server = window.location.hostname === 'localhost'
+  ? 'http://localhost:3333'
+  : `${window.location.protocol}//${window.location.hostname}`;
 
 // Application State
 const appState = {

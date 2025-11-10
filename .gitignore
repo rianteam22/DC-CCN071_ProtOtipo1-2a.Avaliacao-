@@ -71,3 +71,4 @@ backend/uploads/*
 
 # database.sqlite
 backend/database/database.sqlite
+Backend/database/database.sqlite
