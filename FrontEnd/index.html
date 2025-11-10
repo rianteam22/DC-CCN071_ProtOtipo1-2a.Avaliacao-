@@ -129,6 +129,14 @@
                             />
                         </div>
                         <div class="form-group">
+                            <label class="form-label" for="profileNewEmail">Novo Email</label>
+                            <input 
+                                type="email" 
+                                id="profileNewEmail" 
+                                class="form-input" 
+                            />
+                        </div>
+                        <div class="form-group">
                             <label class="form-label" for="profilePassword">Nova Senha (opcional)</label>
                             <input 
                                 type="password" 
@@ -189,6 +197,17 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div id="senhaModal" style="display:none; position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
+  <div class="modal-card">
+    <h3>Digite sua senha atual:</h3>
+    <input type="password" id="senhaInput" style="margin-bottom:12px;width:100%;" autofocus>
+    <div class="modal-actions">
+      <button id="confirmSenhaBtn" class="btn btn-primary">Confirmar</button>
+      <button onclick="closeSenhaModal()" class="btn btn-secondary">Cancelar</button>
+    </div>
+  </div>
     </div>
 
     <script src="index.js"></script>

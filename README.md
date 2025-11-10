@@ -40,25 +40,25 @@ Criar pelo menos um repositório de código (GIT) para a aplicação Web. Lembre
 
 - [x] Criar repositório Git (GitHub/GitLab)
 - [ ] Definir estrutura de diretórios do projeto
-- [ ] Configurar controle de versão e arquivos `.gitignore`
+- [x] Configurar controle de versão e arquivos `.gitignore`
 
 
 ### 3. Desenvolvimento das Funcionalidades Básicas
 
 #### 3.1 Autenticação e Autorização
 
-- [ ] Implementar tela de cadastro de novos usuários
-- [ ] Implementar tela de login dos usuários
-- [ ] Criar lógica de autenticação (geração e validação de tokens/sessões)
-- [ ] Implementar lógica de logout
-- [ ] Proteger rotas restritas para usuários autenticados
+- [x] Implementar tela de cadastro de novos usuários
+- [x] Implementar tela de login dos usuários
+- [x] Criar lógica de autenticação (geração e validação de tokens/sessões)
+- [x] Implementar lógica de logout
+- [x] Proteger rotas restritas para usuários autenticados
 
 
 #### 3.2 Dashboard do Usuário
 
-- [ ] Desenvolver página dashboard para usuário autenticado
+- [x] Desenvolver página dashboard para usuário autenticado
 - [ ] Criar menu simplificado de navegação
-- [ ] Implementar edição de perfil do usuário
+- [x] Implementar edição de perfil do usuário
     - Nome completo
     - Username
     - E-mail

@@ -276,6 +276,8 @@ body {
     font-size: var(--font-size-4xl);
     color: var(--color-text-secondary);
     border: 2px solid var(--color-border);
+    background-size: cover;
+    background-position: center;
 }
 
 .profile-photo-label {
@@ -440,5 +442,119 @@ textarea.form-input {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--space-16);
+    }
+}
+
+#senhaModal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--color-slate-900-rgb, 19, 52, 59), 0.45);
+    z-index: 1200;
+    padding: var(--space-24);
+}
+
+/* mostrar modal */
+#senhaModal.show {
+    display: flex;
+}
+
+/* card do modal */
+#senhaModal .modal-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--color-border);
+    padding: var(--space-24);
+    color: var(--color-text);
+}
+
+/* cabeçalho */
+#senhaModal .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-16);
+}
+
+#senhaModal .modal-title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text);
+}
+
+#senhaModal .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+}
+
+#senhaModal .modal-close:hover {
+    background: var(--color-secondary);
+    color: var(--color-text);
+}
+
+/* corpo */
+#senhaModal .modal-body {
+    margin-bottom: var(--space-16);
+}
+
+/* input de senha */
+#senhaModal input[type="password"].modal-input,
+#senhaModal input.modal-input {
+    width: 100%;
+    padding: var(--space-12);
+    font-size: var(--font-size-base);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-background);
+    color: var(--color-text);
+    transition: all var(--duration-normal) var(--ease-standard);
+}
+
+#senhaModal input.modal-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
+/* ações (botões) */
+#senhaModal .modal-actions {
+    display: flex;
+    gap: var(--space-12);
+    justify-content: flex-end;
+    margin-top: var(--space-12);
+}
+
+#senhaModal .modal-actions .btn {
+    min-width: 100px;
+}
+
+/* responsivo */
+@media (max-width: 480px) {
+    #senhaModal {
+        padding: var(--space-12);
+    }
+
+    #senhaModal .modal-card {
+        max-width: 95%;
+        padding: var(--space-16);
+    }
+
+    #senhaModal .modal-actions {
+        flex-direction: column;
+        gap: var(--space-8);
+    }
+
+    #senhaModal .modal-actions .btn {
+        width: 100%;
     }
 }
