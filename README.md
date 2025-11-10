@@ -53,43 +53,17 @@ Este projeto foi desenvolvido como parte da disciplina DC-CCN071 e implementa um
 
 A aplicação está hospedada em uma infraestrutura AWS configurada seguindo as melhores práticas de segurança e isolamento de rede:
 
-```mermaid
-graph TB
-    Internet((Internet))
-    
-    subgraph VPC["VPC: vpc-topicos-eng-sofware<br/>CIDR: 10.0.0.0/16"]
-        IGW[Internet Gateway<br/>gateway-topicos-eng-sofware]
-        
-        subgraph PublicSubnet["Public Subnet<br/>pub-subnet-topicos-eng-sofware<br/>CIDR: 10.0.1.0/24"]
-            EC2[EC2 Instance<br/>ec2-webserver-topicos-eng-sofware<br/>Ubuntu Server<br/>IP: 10.0.1.96]
-            
-            subgraph EC2Services["Serviços na EC2"]
-                PM2[PM2<br/>Process Manager]
-                Node[Node.js App<br/>Port 3333]
-                Nginx[Nginx<br/>Reverse Proxy<br/>Port 80]
-            end
-        end
-        
-        RT[Route Table<br/>pub-route-table-topicos-eng-sofware]
-        SG[Security Group<br/>pub-sec-group-topicos-eng-soft]
-        NACL[Network ACL<br/>pub-acl-topicos-eng-sofware]
-    end
-    
-    Internet -->|HTTP/HTTPS| IGW
-    IGW --> RT
-    RT --> PublicSubnet
-    SG -.->|Firewall Rules| EC2
-    NACL -.->|Network Rules| PublicSubnet
-    EC2 --> PM2
-    PM2 --> Node
-    Nginx -->|Proxy Pass<br/>localhost:3333| Node
-    Internet -.->|Public IP| Nginx
+![Diagrama de Arquitetura AWS](./imgs/Misc.jpg)
 
-    style VPC fill:#e1f5ff
-    style PublicSubnet fill:#fff4e1
-    style EC2 fill:#e8f5e9
-    style EC2Services fill:#f3f3f3
-```
+O diagrama acima ilustra a topologia completa da infraestrutura, incluindo:
+- **Internet** conectada ao **Internet Gateway** para acesso público
+- **VPC** isolada (vpc-topicos-eng-sofware) com CIDR 10.0.0.0/16 na região us-east-1
+- **Route Table** configurada para direcionar tráfego entre Internet Gateway e a subnet
+- **Public Subnet** (10.0.1.0/24) hospedando a instância EC2
+- **Security Group** com regras de firewall (HTTP, HTTPS, SSH)
+- **Network ACL** provendo segurança adicional no nível da subnet
+- **Instância EC2** executando Ubuntu Server com IP privado 10.0.1.96
+- **Stack de aplicação**: Nginx (porta 80) → PM2 → Node.js Express (porta 3333)
 
 ### Componentes da Infraestrutura
 
@@ -303,6 +277,7 @@ A aplicação está configurada para rodar em produção na AWS seguindo estes p
    - Atribuir IP público
 
 3. **Instalação de Dependências**
+- Conectar a instância
 ```bash
 # Atualizar sistema
 sudo apt update && sudo apt upgrade -y
@@ -351,20 +326,11 @@ sudo systemctl restart nginx
 
 Este projeto foi desenvolvido colaborativamente com as seguintes contribuições:
 
-- **Infraestrutura AWS:** Configuração de VPC, EC2, Security Groups e Network ACLs
-- **Backend:** Desenvolvimento da API REST, autenticação JWT e integração com banco de dados
-- **Frontend:** Interface de usuário, design system e integração com API
-- **Deploy:** Configuração de Nginx, PM2 e ambiente de produção
-- **Documentação:** README, diagramas e especificações técnicas
-
-## Próximas Funcionalidades
-
-- [ ] Integração com AWS S3 para armazenamento de arquivos
-- [ ] Sistema de recuperação de senha por email
-- [ ] Testes automatizados (unitários e de integração)
-- [ ] Sistema de permissões e roles
-- [ ] Dashboard com métricas e estatísticas
-- [ ] HTTPS com certificado SSL/TLS
+- **Infraestrutura AWS:** Configuração de VPC, EC2, Security Groups e Network ACLs (Rian)
+- **Backend:** Desenvolvimento da API REST, autenticação JWT e integração com banco de dados (Carlos)
+- **Frontend:** Interface de usuário, design system e integração com API (Carlos)
+- **Deploy:** Configuração de Nginx, PM2 e ambiente de produção (Rian)
+- **Documentação:** README, diagramas e especificações técnicas (Ambos)
 
 ## Licença
 
