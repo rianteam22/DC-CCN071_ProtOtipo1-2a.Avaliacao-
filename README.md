@@ -1,95 +1,378 @@
-# DC-CCN071_ProtOtipo1-2a.Avaliacao-
+# AWS S33 Drives - Sistema de Autenticação
 
-O 1o. protótipo da aplicação deverá ter as seguintes características:
-A. Funcionalidades básicas da aplicação web
+Protótipo de aplicação web com sistema completo de autenticação, gerenciamento de perfis e hospedagem na AWS.
 
-1. Controle de autenticação e autorização (Login/Logout)
-Objetivo:
+## Sobre o Projeto
 
-- Garantir que apenas usuários autorizados acessem a aplicação.
-- Proteger dados sensíveis e garantir a integridade da aplicação.
-O sistema deve permitir que os usuários se registrem e novo usuários sejam criados.
+Este projeto foi desenvolvido como parte da disciplina DC-CCN071 e implementa uma aplicação web full-stack com foco em segurança, autenticação de usuários e infraestrutura em nuvem. A aplicação permite registro, login, edição de perfil e upload de imagens, tudo rodando em uma infraestrutura AWS configurada manualmente.
 
-2. Exibir dashboard para usuário autenticado
+## Funcionalidades
 
-- Após o usuário autenticado, a aplicação deve exibir um dashboard simplificado, por exemplo: um menu de opções e acesso a edição do perfil do usuário (editar informações, alterar senha).
-Propriedades do usuário: Nome completo, username, password, email, imagem do perfil, descrição e data de criação do usuário.
-B. Especificações técnicas do ambiente de nuvem que vai hospedar a aplicação web
-O protótipo deverá ser implantado usando, pelo menos, os seguintes serviços da AWS:
-- Criação de uma VPC para acomodar os serviços e instância(s) utilizadas
-- Criação de uma instância EC2 para hospedar a aplicação web
-- Configurações de grupos de segurança
-- Configurações de tabela de rotas
-- Definir um IP público para permitir acesso via Internet
+### Autenticação e Autorização
+- Registro de novos usuários com validação de email único
+- Login seguro com geração de tokens JWT
+- Proteção de rotas privadas
+- Sistema de logout com limpeza de sessão
 
-3. Apresentação do protótipo e documentação do projeto
-Criar pelo menos um repositório de código (GIT) para a aplicação Web. Lembre-se de fazer a devida documentação do projeto.
+### Gerenciamento de Perfil
+- Edição completa de informações pessoais (nome, username, email)
+- Upload de foto de perfil com preview em tempo real
+- Alteração de senha com validação de senha atual
+- Campo de descrição pessoal (biografia)
+- Visualização da data de criação da conta
 
-## TODO para Criação do Protótipo da Aplicação Web
+### Dashboard
+- Página principal após autenticação
+- Exibição de todas as informações do usuário
+- Acesso rápido para editar perfil
+- Sistema de busca (preparado para futura integração com S3)
 
-### 1. Planejamento Inicial
+## Stack Tecnológica
 
-- FrontEnd: Nodejs com React | python com Flask 
-- BackEnd: Nodejs com Express | python com Flask
-- Banco de Dados: sqlite
-- [ ] Elaborar um diagrama de alto nível da arquitetura da aplicação.
-- IAM -> chaves -> VPC -> EC2 -> SG -> Rota -> IP Público
+**Backend:**
+- Node.js 20.x
+- Express.js 5.1.0
+- Sequelize ORM 6.37.7
+- SQLite3 5.1.7
+- JWT para autenticação
+- bcrypt para hash de senhas
+- Multer para upload de arquivos
 
+**Frontend:**
+- HTML5, CSS3, JavaScript (Vanilla)
+- Design responsivo com suporte a dark mode
+- Sistema de navegação SPA (Single Page Application)
 
-### 2. Estruturação do Projeto
+**Infraestrutura:**
+- AWS VPC
+- AWS EC2 (Ubuntu)
+- Nginx como reverse proxy
+- PM2 para gerenciamento de processos
 
-- [x] Criar repositório Git (GitHub/GitLab)
-- [ ] Definir estrutura de diretórios do projeto
-- [x] Configurar controle de versão e arquivos `.gitignore`
+## Arquitetura da Infraestrutura AWS
 
+A aplicação está hospedada em uma infraestrutura AWS configurada seguindo as melhores práticas de segurança e isolamento de rede:
 
-### 3. Desenvolvimento das Funcionalidades Básicas
+```mermaid
+graph TB
+    Internet((Internet))
+    
+    subgraph VPC["VPC: vpc-topicos-eng-sofware<br/>CIDR: 10.0.0.0/16"]
+        IGW[Internet Gateway<br/>gateway-topicos-eng-sofware]
+        
+        subgraph PublicSubnet["Public Subnet<br/>pub-subnet-topicos-eng-sofware<br/>CIDR: 10.0.1.0/24"]
+            EC2[EC2 Instance<br/>ec2-webserver-topicos-eng-sofware<br/>Ubuntu Server<br/>IP: 10.0.1.96]
+            
+            subgraph EC2Services["Serviços na EC2"]
+                PM2[PM2<br/>Process Manager]
+                Node[Node.js App<br/>Port 3333]
+                Nginx[Nginx<br/>Reverse Proxy<br/>Port 80]
+            end
+        end
+        
+        RT[Route Table<br/>pub-route-table-topicos-eng-sofware]
+        SG[Security Group<br/>pub-sec-group-topicos-eng-soft]
+        NACL[Network ACL<br/>pub-acl-topicos-eng-sofware]
+    end
+    
+    Internet -->|HTTP/HTTPS| IGW
+    IGW --> RT
+    RT --> PublicSubnet
+    SG -.->|Firewall Rules| EC2
+    NACL -.->|Network Rules| PublicSubnet
+    EC2 --> PM2
+    PM2 --> Node
+    Nginx -->|Proxy Pass<br/>localhost:3333| Node
+    Internet -.->|Public IP| Nginx
 
-#### 3.1 Autenticação e Autorização
+    style VPC fill:#e1f5ff
+    style PublicSubnet fill:#fff4e1
+    style EC2 fill:#e8f5e9
+    style EC2Services fill:#f3f3f3
+```
 
-- [x] Implementar tela de cadastro de novos usuários
-- [x] Implementar tela de login dos usuários
-- [x] Criar lógica de autenticação (geração e validação de tokens/sessões)
-- [x] Implementar lógica de logout
-- [x] Proteger rotas restritas para usuários autenticados
+### Componentes da Infraestrutura
 
+**VPC (Virtual Private Cloud)**
+- Nome: `vpc-topicos-eng-sofware`
+- Rede isolada para os recursos da aplicação
+- Controle total sobre o ambiente de rede
 
-#### 3.2 Dashboard do Usuário
+**Subnet Pública**
+- Nome: `pub-subnet-topicos-eng-sofware`
+- Permite acesso direto à Internet via Internet Gateway
+- Hospeda a instância EC2
 
-- [x] Desenvolver página dashboard para usuário autenticado
-- [ ] Criar menu simplificado de navegação
-- [x] Implementar edição de perfil do usuário
-    - Nome completo
-    - Username
-    - E-mail
-    - Senha (com opção de alteração)
-    - Imagem do perfil (upload e exibição)
-    - Descrição pessoal
-    - Data de criação do usuário (apenas exibição)
+**Internet Gateway**
+- Nome: `gateway-topicos-eng-sofware`
+- Permite comunicação entre a VPC e a Internet
 
+**Tabela de Rotas**
+- Nome: `pub-route-table-topicos-eng-sofware`
+- Direciona tráfego da subnet para o Internet Gateway
 
-### 4. Infraestrutura e Deploy na AWS
+**Security Group**
+- Nome: `pub-sec-group-topicos-eng-soft`
+- Controla tráfego de entrada e saída da instância EC2
+- Regras configuradas para HTTP (80), HTTPS (443) e SSH (22)
 
-#### 4.1 Provisionamento de Ambiente
+**Network ACL**
+- Nome: `pub-acl-topicos-eng-sofware`
+- Camada adicional de segurança no nível da subnet
 
-- [ ] Criar uma VPC exclusiva para o ambiente da aplicação
-- [ ] Configurar sub-redes e tabela de rotas
-- [ ] Criar grupos de segurança definindo regras de acesso (HTTP/HTTPS, SSH, etc.)
-- [ ] Criar instância EC2 para hospedar a aplicação web
-- [ ] Atribuir IP público à instância EC2 e garantir acesso externo
-- [ ] Documentar configurações básicas do ambiente
+**Instância EC2**
+- Nome: `ec2-webserver-topicos-eng-sofware`
+- Sistema: Ubuntu Server
+- IP Privado: 10.0.1.96
+- IP Público: Configurado para acesso externo
+- Serviços:
+  - **Nginx**: Reverse proxy na porta 80
+  - **PM2**: Gerenciador de processos Node.js
+  - **Node.js**: Aplicação rodando na porta 3333
 
+### Configuração do Nginx
 
-#### 4.2 Deploy da Aplicação
+O Nginx está configurado como reverse proxy para encaminhar requisições HTTP para a aplicação Node.js:
 
-- [ ] Instalar dependências da aplicação na EC2
-- [ ] Fazer deploy do código na instância
-- [ ] Configurar variáveis de ambiente
-- [ ] Testar o funcionamento do sistema em ambiente de nuvem
+```nginx
+server {
+    listen 80;
+    server_name _;
 
+    access_log /var/log/nginx/aws-app-access.log;
+    error_log /var/log/nginx/aws-app-error.log;
 
-### 5. Documentação e Apresentação
+    location / {
+        proxy_pass http://localhost:3333;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
 
-- [ ] Documentar o repositório (README detalhado: funcionalidades, rodar local/testar, estrutura básica, contato)
-- [ ] Escrever tutorial ou passo a passo para deploy/reprodução do ambiente
-- [ ] Preparar apresentação do protótipo (slides, demonstração, etc.)
+## Estrutura do Projeto
+
+```
+.
+├── Backend/
+│   ├── index.js                 # Servidor Express principal
+│   ├── package.json             # Dependências do projeto
+│   ├── config/
+│   │   ├── database.js         # Configuração do SQLite
+│   │   └── upload.js           # Configuração do Multer
+│   ├── models/
+│   │   └── User.js             # Model de usuário (Sequelize)
+│   ├── script/
+│   │   ├── initDB.js           # Script de inicialização do banco
+│   │   └── uploadUser.js       # Utilitário para uploads
+│   ├── database/
+│   │   └── database.sqlite     # Banco de dados SQLite
+│   └── uploads/                # Armazenamento de fotos de perfil
+│
+├── FrontEnd/
+│   ├── index.html              # Estrutura HTML (SPA)
+│   ├── index.css               # Estilos e design system
+│   └── index.js                # Lógica de frontend
+│
+├── Checklist.md                # Lista de tarefas do projeto
+└── README.md                   # Este arquivo
+```
+
+## Instalação e Uso
+
+### Pré-requisitos
+
+- Node.js 18.x ou superior
+- npm ou yarn
+- Git
+
+### Rodando Localmente
+
+1. Clone o repositório:
+```bash
+git clone https://github.com/rianteam22/DC-CCN071_ProtOtipo1-2a.Avaliacao-.git
+cd DC-CCN071_ProtOtipo1-2a.Avaliacao-
+```
+
+2. Instale as dependências:
+```bash
+cd Backend
+npm install
+```
+
+3. Crie o arquivo `.env` na pasta Backend:
+```env
+PORT=3333
+JWT_SECRET=sua_chave_secreta_aqui
+JWT_EXPIRES_IN=24h
+```
+
+4. Inicialize o banco de dados:
+```bash
+npm run init-db
+```
+
+5. Inicie o servidor:
+```bash
+npm run dev
+```
+
+6. Acesse a aplicação em `http://localhost:3333`
+
+### Credenciais de Teste
+
+Após rodar `npm run init-db`, um usuário padrão é criado:
+- **Email:** c@c.com
+- **Senha:** 123456
+
+## API Endpoints
+
+### Autenticação
+
+**POST /register**
+- Registra novo usuário
+- Body: `{ "email": "usuario@email.com", "senha": "senha123" }`
+
+**POST /login**
+- Autentica usuário e retorna token JWT
+- Body: `{ "email": "usuario@email.com", "senha": "senha123" }`
+
+### Perfil (Rotas Protegidas)
+
+**GET /profile/me**
+- Retorna informações do usuário autenticado
+- Header: `Authorization: Bearer {token}`
+
+**GET /profile/photo/:uuid**
+- Retorna a foto de perfil do usuário
+
+**POST /profile/upload-photo**
+- Upload de foto de perfil
+- Header: `Authorization: Bearer {token}`
+- Body: FormData com campo `profile_pic`
+
+**PUT /profile/update**
+- Atualiza informações do perfil
+- Header: `Authorization: Bearer {token}`
+- Body: `{ "name": "Nome", "user": "username", "description": "Bio", "novoEmail": "novo@email.com", "novaSenha": "novaSenha", "senhaAtual": "senhaAtual" }`
+
+## Modelo de Dados
+
+### Tabela Users
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| id | INTEGER | Chave primária (auto-incremento) |
+| uuid | UUID | Identificador único universal |
+| email | STRING | Email do usuário (único) |
+| senha | STRING | Hash da senha (bcrypt) |
+| user | STRING | Username (único, opcional) |
+| name | STRING | Nome completo (opcional) |
+| profile_pic | STRING | Caminho da foto de perfil |
+| description | TEXT | Biografia do usuário (max 500 chars) |
+| timestamp_created | DATE | Data de criação da conta |
+
+## Segurança
+
+- **Senhas:** Hash com bcrypt (10 salt rounds)
+- **Autenticação:** JWT com expiração configurável
+- **Validações:** Email e username únicos, senha mínima de 6 caracteres
+- **Upload:** Apenas imagens permitidas (jpg, png, gif, webp) com limite de 5MB
+- **Rotas Protegidas:** Middleware de autenticação JWT
+- **CORS:** Configurado para aceitar requisições do frontend
+
+## Deploy na AWS
+
+A aplicação está configurada para rodar em produção na AWS seguindo estes passos:
+
+1. **Configuração da VPC e Rede**
+   - Criar VPC com CIDR apropriado
+   - Configurar subnet pública
+   - Anexar Internet Gateway
+   - Configurar tabela de rotas
+
+2. **Configuração da Instância EC2**
+   - Lançar instância Ubuntu Server
+   - Configurar Security Group (portas 22, 80, 443)
+   - Atribuir IP público
+
+3. **Instalação de Dependências**
+```bash
+# Atualizar sistema
+sudo apt update && sudo apt upgrade -y
+
+# Instalar Node.js
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Instalar PM2
+sudo npm install -g pm2
+
+# Instalar Nginx
+sudo apt install -y nginx
+```
+
+4. **Deploy da Aplicação**
+```bash
+# Clonar repositório
+git clone https://github.com/rianteam22/DC-CCN071_ProtOtipo1-2a.Avaliacao-.git
+cd DC-CCN071_ProtOtipo1-2a.Avaliacao-/Backend
+
+# Instalar dependências
+npm install
+
+# Configurar variáveis de ambiente
+nano .env
+
+# Inicializar banco
+npm run init-db
+
+# Iniciar com PM2
+pm2 start index.js --name aws-app
+pm2 save
+pm2 startup
+```
+
+5. **Configurar Nginx**
+```bash
+sudo nano /etc/nginx/sites-available/aws-app
+sudo ln -s /etc/nginx/sites-available/aws-app /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+## Equipe e Colaboração
+
+Este projeto foi desenvolvido colaborativamente com as seguintes contribuições:
+
+- **Infraestrutura AWS:** Configuração de VPC, EC2, Security Groups e Network ACLs
+- **Backend:** Desenvolvimento da API REST, autenticação JWT e integração com banco de dados
+- **Frontend:** Interface de usuário, design system e integração com API
+- **Deploy:** Configuração de Nginx, PM2 e ambiente de produção
+- **Documentação:** README, diagramas e especificações técnicas
+
+## Próximas Funcionalidades
+
+- [ ] Integração com AWS S3 para armazenamento de arquivos
+- [ ] Sistema de recuperação de senha por email
+- [ ] Testes automatizados (unitários e de integração)
+- [ ] Sistema de permissões e roles
+- [ ] Dashboard com métricas e estatísticas
+- [ ] HTTPS com certificado SSL/TLS
+
+## Licença
+
+Este projeto foi desenvolvido para fins acadêmicos como parte da disciplina DC-CCN071.
+
+## Contato
+
+Repositório: [https://github.com/rianteam22/DC-CCN071_ProtOtipo1-2a.Avaliacao-](https://github.com/rianteam22/DC-CCN071_ProtOtipo1-2a.Avaliacao-)
+
+---
+
