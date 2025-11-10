@@ -65,45 +65,6 @@ O diagrama acima ilustra a topologia completa da infraestrutura, incluindo:
 - **Instância EC2** executando Ubuntu Server com IP privado 10.0.1.96
 - **Stack de aplicação**: Nginx (porta 80) → PM2 → Node.js Express (porta 3333)
 
-### Componentes da Infraestrutura
-
-**VPC (Virtual Private Cloud)**
-- Nome: `vpc-topicos-eng-sofware`
-- Rede isolada para os recursos da aplicação
-- Controle total sobre o ambiente de rede
-
-**Subnet Pública**
-- Nome: `pub-subnet-topicos-eng-sofware`
-- Permite acesso direto à Internet via Internet Gateway
-- Hospeda a instância EC2
-
-**Internet Gateway**
-- Nome: `gateway-topicos-eng-sofware`
-- Permite comunicação entre a VPC e a Internet
-
-**Tabela de Rotas**
-- Nome: `pub-route-table-topicos-eng-sofware`
-- Direciona tráfego da subnet para o Internet Gateway
-
-**Security Group**
-- Nome: `pub-sec-group-topicos-eng-soft`
-- Controla tráfego de entrada e saída da instância EC2
-- Regras configuradas para HTTP (80), HTTPS (443) e SSH (22)
-
-**Network ACL**
-- Nome: `pub-acl-topicos-eng-sofware`
-- Camada adicional de segurança no nível da subnet
-
-**Instância EC2**
-- Nome: `ec2-webserver-topicos-eng-sofware`
-- Sistema: Ubuntu Server
-- IP Privado: 10.0.1.96
-- IP Público: Configurado para acesso externo
-- Serviços:
-  - **Nginx**: Reverse proxy na porta 80
-  - **PM2**: Gerenciador de processos Node.js
-  - **Node.js**: Aplicação rodando na porta 3333
-
 ### Configuração do Nginx
 
 O Nginx está configurado como reverse proxy para encaminhar requisições HTTP para a aplicação Node.js:
