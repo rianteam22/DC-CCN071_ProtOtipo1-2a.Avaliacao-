@@ -1,4 +1,3 @@
-// models/User.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
@@ -11,7 +10,7 @@ const User = sequelize.define('User', {
     autoIncrement: true
   },
   
-  // UUID gerado automaticamente na criação
+  // UUID na criação
   uuid: {
     type: DataTypes.UUID,
     defaultValue: () => uuidv4(),
@@ -20,7 +19,7 @@ const User = sequelize.define('User', {
     comment: 'Identificador único universal - gerado automaticamente na criação'
   },
   
-  // EMAIL - OBRIGATÓRIO e ÚNICO
+  // EMAIL - OBRIGATÓRIO 
   email: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -36,7 +35,7 @@ const User = sequelize.define('User', {
     comment: 'Email do usuário - obrigatório e único'
   },
   
-  // SENHA - OBRIGATÓRIO (será hasheada automaticamente)
+  // SENHA - OBRIGATÓRIO 
   senha: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -52,7 +51,7 @@ const User = sequelize.define('User', {
     comment: 'Senha hash do usuário - obrigatório'
   },
   
-  // USERNAME - OPCIONAL, mas único quando preenchido
+  // USERNAME 
   user: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -66,14 +65,14 @@ const User = sequelize.define('User', {
     comment: 'Nome de usuário único - opcional, pode ser preenchido depois'
   },
   
-  // NAME - OPCIONAL
+  // NAME 
   name: {
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'Nome completo do usuário - opcional'
   },
   
-  // PROFILE_PIC - Caminho físico no servidor
+  // PROFILE_PIC 
   profile_pic: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -81,7 +80,7 @@ const User = sequelize.define('User', {
     comment: 'Caminho físico da foto de perfil no servidor: ./uploads/{uuid}/profile.jpg'
   },
   
-  // DESCRIPTION - OPCIONAL
+  // DESCRIPTION 
   description: {
     type: DataTypes.TEXT,
     allowNull: true,
@@ -95,7 +94,7 @@ const User = sequelize.define('User', {
     comment: 'Biografia/descrição do usuário - opcional'
   },
   
-  // TIMESTAMP_CREATED - Gerado automaticamente na criação
+  // TIMESTAMP_CREATED 
   timestamp_created: {
     type: DataTypes.DATE,
     allowNull: false,
@@ -104,7 +103,7 @@ const User = sequelize.define('User', {
   }
 }, {
   tableName: 'users',
-  timestamps: false, // Desabilita createdAt/updatedAt padrão do Sequelize
+  timestamps: false, 
   indexes: [
     {
       unique: true,
@@ -127,11 +126,9 @@ const User = sequelize.define('User', {
   ]
 });
 
-// ==========================================
-// HOOKS - Executados automaticamente
-// ==========================================
+// HOOKS 
 
-// Hook: Hash de senha ANTES de criar usuário
+// Hook: Hash de senha 
 User.beforeCreate(async (user) => {
   if (user.senha) {
     const salt = await bcrypt.genSalt(10);
@@ -139,7 +136,7 @@ User.beforeCreate(async (user) => {
   }
 });
 
-// Hook: Hash de senha ANTES de atualizar usuário (se senha foi alterada)
+// Hook: Hash de senha 
 User.beforeUpdate(async (user) => {
   if (user.changed('senha')) {
     const salt = await bcrypt.genSalt(10);
@@ -147,9 +144,7 @@ User.beforeUpdate(async (user) => {
   }
 });
 
-// ==========================================
 // MÉTODOS DE INSTÂNCIA
-// ==========================================
 
 // Método: Validar senha no login
 User.prototype.validPassword = async function(senha) {
@@ -161,7 +156,7 @@ User.prototype.getUserFolder = function() {
   return `./uploads/${this.uuid}`;
 };
 
-// Método: Obter caminho completo da foto de perfil
+//Método: Obter caminho da foto de perfil
 User.prototype.getProfilePicPath = function() {
   return this.profile_pic || null;
 };
@@ -171,28 +166,25 @@ User.prototype.isProfileComplete = function() {
   return !!(this.user && this.name && this.profile_pic);
 };
 
-// Método: Serializar sem expor senha
+// Método: json sem campo senha
 User.prototype.toJSON = function() {
   const values = { ...this.get() };
-  delete values.senha; // Remove senha do retorno JSON
+  delete values.senha; 
   return values;
 };
 
-// ==========================================
-// MÉTODOS ESTÁTICOS (da classe)
-// ==========================================
 
-// Método estático: Buscar por email
+// Método: Buscar por email
 User.findByEmail = async function(email) {
   return await this.findOne({ where: { email } });
 };
 
-// Método estático: Buscar por username
+// Método: Buscar por username
 User.findByUsername = async function(username) {
   return await this.findOne({ where: { user: username } });
 };
 
-// Método estático: Buscar por UUID
+// Método: Buscar por UUID
 User.findByUuid = async function(uuid) {
   return await this.findOne({ where: { uuid } });
 };

@@ -1,4 +1,3 @@
-// config/database.js
 const { Sequelize } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
@@ -14,11 +13,11 @@ const dbPath = path.resolve(__dirname, '..','database', 'database.sqlite');
 // Criar instância do Sequelize
 const sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: dbPath, // onde o arquivo .sqlite será salvo
-  logging: console.log, // mostra queries SQL no console (pode desabilitar com false)
+  storage: dbPath, // caminho do sqlite
+  logging: console.log, // debug: mostra as queries no console
   define: {
     timestamps: false, // desabilita createdAt/updatedAt automáticos
-    freezeTableName: true // usa nome exato da tabela (não pluraliza)
+    freezeTableName: true 
   }
 });
 

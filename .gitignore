@@ -65,3 +65,9 @@ Thumbs.db
 *.log.*
 /npm-debug.log*
 /yarn-error.log*
+
+# Pastas de dentro do uploads
+backend/uploads/*
+
+# database.sqlite
+backend/database/database.sqlite

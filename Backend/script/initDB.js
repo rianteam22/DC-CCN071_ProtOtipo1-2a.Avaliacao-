@@ -1,8 +1,8 @@
-// scripts/initDatabase.js
 const sequelize = require('../config/database');
 const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
+const {makeDirUsers} = require('./uploadUser');
 
 async function initDatabase() {
   try {
@@ -12,16 +12,15 @@ async function initDatabase() {
     await sequelize.authenticate();
     console.log('Conexão estabelecida com sucesso!');
     
-    // Sincronizar modelos (cria as tabelas)
+    // Sincronizar modelos 
     console.log('Sincronizando modelos...');
     await sequelize.sync({ 
-      force: true, // false = não recria as tabelas existentes
-      alter: true  // false = não altera estrutura de tabelas existentes
+      force: true,
+      alter: true  
     });
     console.log('Tabelas criadas/sincronizadas com sucesso!');
     
-    // Criar pasta uploads se não existir
-    const uploadsPath = path.resolve(__dirname, '..', 'uploads');
+    const uploadsPath = path.resolve(__dirname, '..', 'uploads'); // criar pasta uploads
     if (!fs.existsSync(uploadsPath)) {
       fs.mkdirSync(uploadsPath, { recursive: true });
       console.log('Pasta uploads/ criada');
@@ -29,7 +28,7 @@ async function initDatabase() {
 
     await defaultUser();
     
-    // Verificar se existem usuários
+    // comando basicos de teste
     const userCount = await User.count();
     console.log(`Total de usuários no banco: ${userCount}`);
     console.log('Usuários existentes:');
@@ -54,6 +53,9 @@ async function defaultUser(){
       email: 'c@c.com',
       senha: '123456'
     })
+    console.log('#### Usuário padrão criado:', userDefault.toJSON());
+    await makeDirUsers(userDefault.uuid);
+    
   } catch (error) {
     console.error('Erro ao criar usuário padrão:', error);
   }
