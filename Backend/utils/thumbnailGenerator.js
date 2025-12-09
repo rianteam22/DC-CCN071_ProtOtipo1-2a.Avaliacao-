@@ -1,6 +1,7 @@
 const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
+const ffprobePath = require('ffprobe-static').path;
 const { Upload } = require('@aws-sdk/lib-storage');
 const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
@@ -8,8 +9,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-// Configurar caminho do FFmpeg
+// Configurar caminhos do FFmpeg e FFprobe
 ffmpeg.setFfmpegPath(ffmpegPath);
+ffmpeg.setFfprobePath(ffprobePath);
 
 // Constantes
 const THUMBNAIL_SIZE = 150;
