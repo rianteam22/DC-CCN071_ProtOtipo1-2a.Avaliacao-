@@ -151,12 +151,7 @@ User.prototype.validPassword = async function(senha) {
   return await bcrypt.compare(senha, this.senha);
 };
 
-// Método: Obter caminho da pasta do usuário
-User.prototype.getUserFolder = function() {
-  return `./uploads/${this.uuid}`;
-};
-
-//Método: Obter caminho da foto de perfil
+//Método: Obter URL da foto de perfil (agora retorna URL do S3)
 User.prototype.getProfilePicPath = function() {
   return this.profile_pic || null;
 };

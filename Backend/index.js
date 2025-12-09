@@ -26,7 +26,6 @@ const User = require('./models/User')
 const upload = require('./config/upload');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
 const path = require('path');
 
 require('dotenv').config();
@@ -62,29 +61,23 @@ function authenticateToken(req, res, next) {
 }
 
 //GETs
-// Rota para ver a foto
+// Rota para ver a foto (retorna URL do S3)
 app.get('/profile/photo/:user', async (req, res) => {
   try {
     const { user } = req.params;
-    
+
     // Buscar usuário
     const usuario = await User.findByUuid(user);
-    
+
     if (!usuario || !usuario.profile_pic) {
       return res.status(404).json({ error: 'Foto não encontrada' });
     }
 
-    const pathPic = path.resolve(__dirname, usuario.profile_pic);
-    
-    // Verificar se arquivo existe
-    if (!fs.existsSync(pathPic)) {
-      return res.status(404).json({ error: 'Arquivo não encontrado' });
-    }
-    
-    // Enviar arquivo
-    res.sendFile(pathPic);
-    console.log('Enviando foto:', usuario.profile_pic);
-    
+    // Retornar URL do S3 armazenada no banco
+    res.json({
+      url: usuario.profile_pic
+    });
+
   } catch (error) {
     console.error('Erro ao buscar foto de perfil:', error);
     res.status(500).json({ error: error.message });
@@ -180,28 +173,30 @@ app.post('/profile/upload-photo', authenticateToken, upload.single('profile_pic'
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo foi enviado' });
     }
-    
+
     const usuario = await User.findByPk(req.user.id);
-    
+
     if (!usuario) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
-    
-    const profilePicPath = req.file.path;
-    
+
+    // multer-s3 retorna a URL do arquivo em req.file.location
+    const profilePicUrl = req.file.location;
+
     await usuario.update({
-      profile_pic: profilePicPath
+      profile_pic: profilePicUrl
     });
-    
+
     res.json({
       message: 'Foto de perfil atualizada com sucesso!',
       file: {
-        filename: req.file.filename,
-        path: profilePicPath
+        key: req.file.key,           // Chave no S3: uploads/uuid/profile.jpg
+        url: profilePicUrl,          // URL pública do S3
+        bucket: req.file.bucket      // Nome do bucket
       },
       user: usuario.toJSON()
     });
-    
+
   } catch (error) {
     console.error('Erro ao fazer upload:', error);
     res.status(500).json({ error: error.message });
