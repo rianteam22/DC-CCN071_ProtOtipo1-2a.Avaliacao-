@@ -5,7 +5,9 @@ const server = window.location.hostname === 'localhost'
 // Application State
 const appState = {
   currentUser: null,
-  token: null
+  token: null,
+  mediaGallery: [],
+  mediaStats: {}
 };
 
 //utilidades
@@ -40,6 +42,241 @@ function openSenhaModal(onSubmit) {
 function closeSenhaModal() {
   document.getElementById('senhaModal').style.display = 'none';
 }
+
+// ===== MEDIA GALLERY FUNCTIONS =====
+
+// Open upload modal
+function openUploadModal() {
+  document.getElementById('uploadMediaModal').style.display = 'flex';
+  document.getElementById('uploadMediaForm').reset();
+  document.getElementById('uploadError').style.display = 'none';
+  document.getElementById('mediaFileInput').focus();
+}
+
+// Close upload modal
+function closeUploadModal() {
+  document.getElementById('uploadMediaModal').style.display = 'none';
+  document.getElementById('uploadMediaForm').reset();
+}
+
+// Upload media
+async function uploadMedia(e) {
+  e.preventDefault();
+
+  const fileInput = document.getElementById('mediaFileInput');
+  const title = document.getElementById('mediaTitleInput').value.trim();
+  const description = document.getElementById('mediaDescriptionInput').value.trim();
+  const uploadBtn = document.getElementById('uploadSubmitBtn');
+  const errorDiv = document.getElementById('uploadError');
+
+  if (!fileInput.files || !fileInput.files[0]) {
+    errorDiv.textContent = 'Selecione um arquivo';
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  const file = fileInput.files[0];
+
+  // Validate file size client-side
+  const maxSizes = {
+    image: 5 * 1024 * 1024,
+    video: 100 * 1024 * 1024,
+    audio: 20 * 1024 * 1024
+  };
+
+  let mediaType = null;
+  if (file.type.startsWith('image/')) mediaType = 'image';
+  else if (file.type.startsWith('video/')) mediaType = 'video';
+  else if (file.type.startsWith('audio/')) mediaType = 'audio';
+
+  if (mediaType && file.size > maxSizes[mediaType]) {
+    const maxMB = maxSizes[mediaType] / (1024 * 1024);
+    errorDiv.textContent = `Arquivo muito grande. Máximo para ${mediaType}: ${maxMB}MB`;
+    errorDiv.style.display = 'block';
+    return;
+  }
+
+  try {
+    errorDiv.style.display = 'none';
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = 'Enviando...';
+
+    const formData = new FormData();
+    formData.append('media', file);
+    if (title) formData.append('title', title);
+    if (description) formData.append('description', description);
+
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${server}/api/media/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erro ao fazer upload');
+    }
+
+    closeUploadModal();
+    await loadMediaGallery(); // Reload gallery
+
+  } catch (error) {
+    errorDiv.textContent = error.message;
+    errorDiv.style.display = 'block';
+  } finally {
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = 'Upload';
+  }
+}
+
+// Load media gallery from API
+async function loadMediaGallery(searchTerm = '') {
+  const token = localStorage.getItem('token');
+  const errorDiv = document.getElementById('mediaGalleryError');
+
+  try {
+    errorDiv.style.display = 'none';
+
+    let url = `${server}/api/media`;
+    if (searchTerm) {
+      url += `?search=${encodeURIComponent(searchTerm)}`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erro ao carregar mídias');
+    }
+
+    appState.mediaGallery = data.medias || [];
+    appState.mediaStats = data.stats || {};
+    renderMediaGallery();
+
+  } catch (error) {
+    errorDiv.textContent = error.message;
+    errorDiv.style.display = 'block';
+  }
+}
+
+// Render media gallery
+function renderMediaGallery() {
+  const container = document.getElementById('mediaGalleryContainer');
+  const medias = appState.mediaGallery || [];
+
+  if (medias.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📁</div>
+        <div class="empty-state-text">Nenhuma mídia encontrada</div>
+        <p style="margin-top: var(--space-12); color: var(--color-text-secondary);">
+          Clique em "Upload de Mídia" para começar
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = medias.map(media => {
+    const typeIcon = {
+      image: '🖼️',
+      video: '🎥',
+      audio: '🎵'
+    }[media.type] || '📄';
+
+    const formattedDate = formatDate(media.created_at);
+    const sizeMB = (media.size / (1024 * 1024)).toFixed(2);
+
+    let mediaPreview = '';
+    if (media.type === 'image') {
+      mediaPreview = `<img src="${media.url}" alt="${media.title || media.filename}" class="media-preview-img" />`;
+    } else if (media.type === 'video') {
+      mediaPreview = `<video src="${media.url}" class="media-preview-video" controls></video>`;
+    } else if (media.type === 'audio') {
+      mediaPreview = `
+        <div class="media-audio-placeholder">
+          <span style="font-size: 48px;">🎵</span>
+        </div>
+        <audio src="${media.url}" controls class="media-audio-player"></audio>
+      `;
+    }
+
+    return `
+      <div class="media-card" data-uuid="${media.uuid}">
+        <div class="media-preview">
+          ${mediaPreview}
+        </div>
+        <div class="media-info">
+          <div class="media-title">${typeIcon} ${media.title || media.filename}</div>
+          ${media.description ? `<div class="media-description">${media.description}</div>` : ''}
+          <div class="media-meta">
+            <span>${sizeMB} MB</span>
+            <span>${formattedDate}</span>
+          </div>
+        </div>
+        <div class="media-actions">
+          <button class="btn btn-secondary btn-sm" onclick="deleteMedia('${media.uuid}', '${media.filename}')">🗑️ Excluir</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// Delete media
+async function deleteMedia(uuid, filename) {
+  if (!confirm(`Tem certeza que deseja excluir "${filename}"?\n\nEsta ação é permanente e não pode ser desfeita.`)) {
+    return;
+  }
+
+  const token = localStorage.getItem('token');
+  const errorDiv = document.getElementById('mediaGalleryError');
+
+  try {
+    errorDiv.style.display = 'none';
+
+    const response = await fetch(`${server}/api/media/${uuid}?permanent=true`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Erro ao excluir mídia');
+    }
+
+    await loadMediaGallery(); // Reload gallery
+
+  } catch (error) {
+    errorDiv.textContent = error.message;
+    errorDiv.style.display = 'block';
+  }
+}
+
+// Debounce utility for search
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
+// Search media (debounced)
+const searchMedia = debounce(function(searchTerm) {
+  loadMediaGallery(searchTerm);
+}, 500);
 
 function formatDate(date) {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -391,7 +628,7 @@ async function loadDashboard() {
 
 function renderDashboard() {
   const user = appState.currentUser;
-  
+
   if (!user) return;
 
   const dashboardTitle = document.querySelector('.dashboard-title');
@@ -399,26 +636,8 @@ function renderDashboard() {
     dashboardTitle.textContent = `Bem-vindo, ${user.name || user.email}!`;
   }
 
-  // Você pode adicionar mais conteúdo dinâmico aqui
-  const itemsContainer = document.getElementById('itemsContainer');
-  // teste de carregamento dos dados
-  itemsContainer.innerHTML = `
-    <div class="user-info-card" style="background: var(--color-surface); padding: var(--space-24); border-radius: var(--radius-lg); margin-bottom: var(--space-24); border: 1px solid var(--color-border);">
-      <h3 style="margin-bottom: var(--space-16); color: var(--color-text);">Informações do Perfil</h3>
-      <p><strong>Email:</strong> ${user.email}</p>
-      <p><strong>Username:</strong> ${user.user || 'Não definido'}</p>
-      <p><strong>Nome:</strong> ${user.name || 'Não definido'}</p>
-      <p><strong>Descrição:</strong> ${user.description || 'Sem descrição'}</p>
-      <p><strong>Conta criada em:</strong> ${formatDate(user.timestamp_created)}</p>
-      ${user.profile_pic ? `<p><strong>Foto de perfil:</strong> <img src="${user.profile_pic}" alt="Foto" style="max-width: 100px; border-radius: 50%; margin-top: 8px;"></p>` : ''}
-    </div>
-    
-    <div class="empty-state">
-      <div class="empty-state-icon">📋</div>
-      <div class="empty-state-text">Nenhum item encontrado</div>
-      <p style="margin-top: var(--space-12); color: var(--color-text-secondary);">Use a busca acima para encontrar itens</p>
-    </div>
-  `;
+  // Load media gallery
+  loadMediaGallery();
 }
 
 document.getElementById('profileBtn').addEventListener('click', () => {
@@ -442,4 +661,26 @@ function logout() {
 
 window.addEventListener('DOMContentLoaded', () => {
   checkAuth();
+
+  // Upload media modal listeners
+  const uploadMediaBtn = document.getElementById('uploadMediaBtn');
+  if (uploadMediaBtn) {
+    uploadMediaBtn.addEventListener('click', openUploadModal);
+  }
+
+  const uploadMediaForm = document.getElementById('uploadMediaForm');
+  if (uploadMediaForm) {
+    uploadMediaForm.addEventListener('submit', uploadMedia);
+  }
+
+  // Search input listener
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+      const currentPage = document.querySelector('.page.active').id;
+      if (currentPage === 'dashboardPage') {
+        searchMedia(e.target.value);
+      }
+    });
+  }
 });

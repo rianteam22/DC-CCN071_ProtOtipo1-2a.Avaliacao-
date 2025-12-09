@@ -2,6 +2,7 @@ const Media = require('../models/Media');
 const User = require('../models/User');
 const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
+const { Op } = require('sequelize');
 
 // POST /media/upload - Upload de nova mídia
 async function uploadMedia(req, res) {
@@ -60,7 +61,7 @@ async function uploadMedia(req, res) {
 // GET /media - Listar todas as mídias do usuário autenticado
 async function listUserMedia(req, res) {
   try {
-    const { type, active } = req.query;
+    const { type, active, search } = req.query;
 
     // Construir filtro
     const where = { userId: req.user.id };
@@ -74,6 +75,11 @@ async function listUserMedia(req, res) {
     } else {
       // Por padrão, mostrar apenas mídias ativas
       where.active = true;
+    }
+
+    // Filtro de busca por filename
+    if (search) {
+      where.filename = { [Op.like]: `%${search}%` };
     }
 
     const medias = await Media.findAll({

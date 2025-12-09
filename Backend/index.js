@@ -63,7 +63,7 @@ function authenticateToken(req, res, next) {
 }
 
 // Media routes (todas requerem autenticação)
-app.use('/media', authenticateToken, mediaRoutes);
+app.use('/api/media', authenticateToken, mediaRoutes);
 
 //GETs
 // Rota para ver a foto (retorna URL do S3)

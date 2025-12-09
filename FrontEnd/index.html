@@ -191,9 +191,15 @@
                 />
             </div>
             <div class="items-list">
-                <h2 class="items-title">Seus Itens</h2>
-                <div id="itemsContainer">
-                    #TODO - Lista de Itens Carregados AWS S3
+                <div class="media-gallery-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-24);">
+                    <h2 class="items-title">Galeria de Mídia</h2>
+                    <button id="uploadMediaBtn" class="btn btn-primary">📤 Upload de Mídia</button>
+                </div>
+
+                <div id="mediaGalleryError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
+
+                <div id="mediaGalleryContainer" class="media-gallery">
+                    <!-- Media cards will be rendered here -->
                 </div>
             </div>
         </div>
@@ -208,6 +214,57 @@
       <button onclick="closeSenhaModal()" class="btn btn-secondary">Cancelar</button>
     </div>
   </div>
+    </div>
+
+    <!-- Upload Media Modal -->
+    <div id="uploadMediaModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
+      <div class="modal-card" style="max-width: 500px; width: 90%;">
+        <h3 style="margin-bottom: var(--space-16);">Upload de Mídia</h3>
+        <div id="uploadError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
+
+        <form id="uploadMediaForm">
+          <div style="margin-bottom: var(--space-16);">
+            <label style="display: block; margin-bottom: var(--space-8); font-weight: 500;">Arquivo</label>
+            <input
+              type="file"
+              id="mediaFileInput"
+              accept="image/*,video/*,audio/*"
+              required
+              style="width: 100%; padding: var(--space-12); border: 2px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface);"
+            />
+            <small style="color: var(--color-text-secondary); display: block; margin-top: var(--space-8);">
+              Imagens (5MB) • Vídeos (100MB) • Áudios (20MB)
+            </small>
+          </div>
+
+          <div style="margin-bottom: var(--space-16);">
+            <label style="display: block; margin-bottom: var(--space-8); font-weight: 500;">Título (opcional)</label>
+            <input
+              type="text"
+              id="mediaTitleInput"
+              maxlength="255"
+              placeholder="Ex: Foto de Férias 2024"
+              style="width: 100%; padding: var(--space-12); border: 2px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface);"
+            />
+          </div>
+
+          <div style="margin-bottom: var(--space-24);">
+            <label style="display: block; margin-bottom: var(--space-8); font-weight: 500;">Descrição (opcional)</label>
+            <textarea
+              id="mediaDescriptionInput"
+              maxlength="1000"
+              placeholder="Adicione uma descrição..."
+              rows="3"
+              style="width: 100%; padding: var(--space-12); border: 2px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface); resize: vertical; font-family: inherit;"
+            ></textarea>
+          </div>
+
+          <div class="modal-actions" style="display: flex; gap: var(--space-12); justify-content: flex-end;">
+            <button type="button" onclick="closeUploadModal()" class="btn btn-secondary">Cancelar</button>
+            <button type="submit" id="uploadSubmitBtn" class="btn btn-primary">Upload</button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <script src="index.js"></script>
