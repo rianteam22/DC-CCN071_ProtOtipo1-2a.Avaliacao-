@@ -318,13 +318,13 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
 async function initDatabase() {
   try {
     await sequelize.authenticate();
-    console.log(' Conexão com banco de dados estabelecida');
-    
-    await sequelize.sync({ alter: true });
-    console.log(' Modelos sincronizados');
-    
+    console.log('✅ Conexão com banco de dados PostgreSQL estabelecida');
+
+    // ⚠️ NÃO usar sync em produção! Use migrations ou o script initDB.js
+    // await sequelize.sync({ alter: true }); // REMOVIDO para evitar erros
+
   } catch (error) {
-    console.error('Erro ao conectar ao banco:', error);
+    console.error('❌ Erro ao conectar ao banco:', error);
     process.exit(1);
   }
 }
