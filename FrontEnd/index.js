@@ -1,6 +1,20 @@
-const server = window.location.hostname === 'localhost'
-  ? 'http://localhost:3333'
-  : `${window.location.protocol}//${window.location.hostname}`;
+// Configuração do servidor para funcionar com Load Balancer (AWS ALB)
+// - Em desenvolvimento local: usa localhost:3333
+// - Em produção (atrás do ALB): usa a origem atual (protocolo + host)
+// - Suporta qualquer hostname/IP dinâmico do ALB
+const server = (() => {
+  const { hostname, protocol, port } = window.location;
+  
+  // Desenvolvimento local
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:3333';
+  }
+  
+  // Produção: usar origem atual (funciona com ALB, IP público, ou domínio)
+  // O ALB faz proxy para as instâncias, então usamos a mesma origem
+  const portSuffix = port && port !== '80' && port !== '443' ? `:${port}` : '';
+  return `${protocol}//${hostname}${portSuffix}`;
+})();
 
 // Application State
 const appState = {
