@@ -61,7 +61,18 @@ async function uploadMedia(req, res) {
 // GET /media - Listar todas as mídias do usuário autenticado
 async function listUserMedia(req, res) {
   try {
-    const { type, active, search } = req.query;
+    const { type, active, search, limit = 20, page = 1, sortBy = 'created_at', sortOrder = 'DESC' } = req.query;
+
+    // Validação de paginação
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    // Validação de ordenação
+    const validSortFields = ['created_at', 'size', 'filename'];
+    const validSortOrders = ['ASC', 'DESC'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
+    const sortDirection = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
 
     // Construir filtro
     const where = { userId: req.user.id };
@@ -82,15 +93,23 @@ async function listUserMedia(req, res) {
       where.filename = { [Op.like]: `%${search}%` };
     }
 
+    // Contar total ANTES de aplicar paginação
+    const total = await Media.count({ where });
+
     const medias = await Media.findAll({
       where,
-      order: [['created_at', 'DESC']],
-      attributes: { exclude: ['userId'] } // Não retornar userId no JSON
+      order: [[sortField, sortDirection]],
+      attributes: { exclude: ['userId'] }, // Não retornar userId no JSON
+      limit: limitNum,
+      offset: offset
     });
+
+    const totalPages = Math.ceil(total / limitNum);
 
     // Estatísticas
     const stats = {
-      total: medias.length,
+      total: medias.length,  // Itens na página atual
+      filtered: total,       // Total matching filters
       images: await Media.countByType(req.user.id, 'image'),
       videos: await Media.countByType(req.user.id, 'video'),
       audios: await Media.countByType(req.user.id, 'audio')
@@ -98,7 +117,16 @@ async function listUserMedia(req, res) {
 
     res.json({
       stats,
-      medias
+      medias,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        offset: offset,
+        total: total,
+        pages: totalPages,
+        hasNext: pageNum < totalPages,
+        hasPrev: pageNum > 1
+      }
     });
 
   } catch (error) {

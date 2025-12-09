@@ -196,10 +196,61 @@
                     <button id="uploadMediaBtn" class="btn btn-primary">📤 Upload de Mídia</button>
                 </div>
 
+                <!-- Barra de filtros -->
+                <div class="media-filters" style="display: flex; gap: var(--space-12); margin-bottom: var(--space-16); flex-wrap: wrap; align-items: center;">
+                    <!-- Filtro por tipo -->
+                    <div class="filter-group">
+                        <label style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-right: var(--space-8);">Tipo:</label>
+                        <select id="typeFilter" class="filter-select">
+                            <option value="">Todos</option>
+                            <option value="image">🖼️ Imagens</option>
+                            <option value="video">🎥 Vídeos</option>
+                            <option value="audio">🎵 Áudios</option>
+                        </select>
+                    </div>
+
+                    <!-- Ordenação -->
+                    <div class="filter-group">
+                        <label style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-right: var(--space-8);">Ordenar:</label>
+                        <select id="sortFilter" class="filter-select">
+                            <option value="created_at-DESC">Mais recentes</option>
+                            <option value="created_at-ASC">Mais antigos</option>
+                            <option value="size-DESC">Maior tamanho</option>
+                            <option value="size-ASC">Menor tamanho</option>
+                            <option value="filename-ASC">Nome (A-Z)</option>
+                            <option value="filename-DESC">Nome (Z-A)</option>
+                        </select>
+                    </div>
+
+                    <!-- Info de resultados -->
+                    <div class="filter-info" style="margin-left: auto; font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+                        <span id="resultsCount">Carregando...</span>
+                    </div>
+                </div>
+
                 <div id="mediaGalleryError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
 
-                <div id="mediaGalleryContainer" class="media-gallery">
-                    <!-- Media cards will be rendered here -->
+                <!-- Tabela de mídias -->
+                <div class="table-container">
+                    <table class="media-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50px;">Tipo</th>
+                                <th>Nome</th>
+                                <th style="width: 150px;">Tamanho</th>
+                                <th style="width: 180px;">Data</th>
+                                <th style="width: 100px;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mediaTableBody">
+                            <!-- Linhas renderizadas via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Controles de paginação -->
+                <div id="paginationControls" class="pagination-controls" style="margin-top: var(--space-24);">
+                    <!-- Renderizado via JS -->
                 </div>
             </div>
         </div>

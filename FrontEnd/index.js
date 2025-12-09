@@ -7,7 +7,23 @@ const appState = {
   currentUser: null,
   token: null,
   mediaGallery: [],
-  mediaStats: {}
+  mediaStats: {},
+  // Estado de paginação
+  mediaPagination: {
+    currentPage: 1,
+    pageSize: 20,
+    totalPages: 0,
+    totalItems: 0,
+    hasNext: false,
+    hasPrev: false
+  },
+  // Estado de filtros
+  mediaFilters: {
+    search: '',
+    type: '',           // '', 'image', 'video', 'audio'
+    sortBy: 'created_at',
+    sortOrder: 'DESC'   // 'DESC' = mais recentes, 'ASC' = mais antigos
+  }
 };
 
 //utilidades
@@ -122,7 +138,8 @@ async function uploadMedia(e) {
     }
 
     closeUploadModal();
-    await loadMediaGallery(); // Reload gallery
+    // Manter página atual após upload
+    await loadMediaGallery(appState.mediaPagination.currentPage);
 
   } catch (error) {
     errorDiv.textContent = error.message;
@@ -134,22 +151,34 @@ async function uploadMedia(e) {
 }
 
 // Load media gallery from API
-async function loadMediaGallery(searchTerm = '') {
+async function loadMediaGallery(page = null) {
   const token = localStorage.getItem('token');
   const errorDiv = document.getElementById('mediaGalleryError');
+
+  // Usar page fornecido ou current page do estado
+  const currentPage = page !== null ? page : appState.mediaPagination.currentPage;
 
   try {
     errorDiv.style.display = 'none';
 
-    let url = `${server}/api/media`;
-    if (searchTerm) {
-      url += `?search=${encodeURIComponent(searchTerm)}`;
+    // Construir URL com todos os parâmetros
+    const params = new URLSearchParams();
+    params.append('limit', appState.mediaPagination.pageSize);
+    params.append('page', currentPage);
+
+    if (appState.mediaFilters.search) {
+      params.append('search', appState.mediaFilters.search);
     }
+    if (appState.mediaFilters.type) {
+      params.append('type', appState.mediaFilters.type);
+    }
+    params.append('sortBy', appState.mediaFilters.sortBy);
+    params.append('sortOrder', appState.mediaFilters.sortOrder);
+
+    const url = `${server}/api/media?${params.toString()}`;
 
     const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers: { 'Authorization': `Bearer ${token}` }
     });
 
     const data = await response.json();
@@ -158,9 +187,20 @@ async function loadMediaGallery(searchTerm = '') {
       throw new Error(data.error || 'Erro ao carregar mídias');
     }
 
+    // Atualizar estado
     appState.mediaGallery = data.medias || [];
     appState.mediaStats = data.stats || {};
-    renderMediaGallery();
+    appState.mediaPagination = {
+      currentPage: data.pagination.page,
+      pageSize: data.pagination.limit,
+      totalPages: data.pagination.pages,
+      totalItems: data.pagination.total,
+      hasNext: data.pagination.hasNext,
+      hasPrev: data.pagination.hasPrev
+    };
+
+    renderMediaTable();
+    renderPaginationControls();
 
   } catch (error) {
     errorDiv.textContent = error.message;
@@ -168,25 +208,80 @@ async function loadMediaGallery(searchTerm = '') {
   }
 }
 
-// Render media gallery
-function renderMediaGallery() {
-  const container = document.getElementById('mediaGalleryContainer');
+// Navegação de páginas
+function goToPage(page) {
+  appState.mediaPagination.currentPage = page;
+  loadMediaGallery(page);
+}
+
+function nextPage() {
+  if (appState.mediaPagination.hasNext) {
+    goToPage(appState.mediaPagination.currentPage + 1);
+  }
+}
+
+function prevPage() {
+  if (appState.mediaPagination.hasPrev) {
+    goToPage(appState.mediaPagination.currentPage - 1);
+  }
+}
+
+// Aplicar filtros
+function applyFilters() {
+  // Sempre voltar para página 1 ao aplicar novos filtros
+  appState.mediaPagination.currentPage = 1;
+  loadMediaGallery(1);
+}
+
+// Filtro de tipo
+function filterByType(type) {
+  appState.mediaFilters.type = type;
+  applyFilters();
+}
+
+// Ordenação
+function sortMedia(sortBy, sortOrder) {
+  appState.mediaFilters.sortBy = sortBy;
+  appState.mediaFilters.sortOrder = sortOrder;
+  applyFilters();
+}
+
+// Busca (substitui searchMedia anterior)
+const searchMediaDebounced = debounce(function(searchTerm) {
+  appState.mediaFilters.search = searchTerm;
+  applyFilters();
+}, 500);
+
+// Render media table
+function renderMediaTable() {
+  const tbody = document.getElementById('mediaTableBody');
   const medias = appState.mediaGallery || [];
+  const resultsCount = document.getElementById('resultsCount');
+
+  // Atualizar contador de resultados
+  const { totalItems, currentPage, pageSize } = appState.mediaPagination;
+  const start = totalItems > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const end = Math.min(currentPage * pageSize, totalItems);
+  resultsCount.textContent = `${start}-${end} de ${totalItems} itens`;
 
   if (medias.length === 0) {
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">📁</div>
-        <div class="empty-state-text">Nenhuma mídia encontrada</div>
-        <p style="margin-top: var(--space-12); color: var(--color-text-secondary);">
-          Clique em "Upload de Mídia" para começar
-        </p>
-      </div>
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="5" class="empty-cell">
+          <div class="empty-state">
+            <div class="empty-state-icon">📁</div>
+            <div class="empty-state-text">Nenhuma mídia encontrada</div>
+            <p style="margin-top: var(--space-12); color: var(--color-text-secondary);">
+              Clique em "Upload de Mídia" para começar
+            </p>
+          </div>
+        </td>
+      </tr>
     `;
     return;
   }
 
-  container.innerHTML = medias.map(media => {
+  tbody.innerHTML = medias.map(media => {
     const typeIcon = {
       image: '🖼️',
       video: '🎥',
@@ -196,39 +291,107 @@ function renderMediaGallery() {
     const formattedDate = formatDate(media.created_at);
     const sizeMB = (media.size / (1024 * 1024)).toFixed(2);
 
-    let mediaPreview = '';
-    if (media.type === 'image') {
-      mediaPreview = `<img src="${media.url}" alt="${media.title || media.filename}" class="media-preview-img" />`;
-    } else if (media.type === 'video') {
-      mediaPreview = `<video src="${media.url}" class="media-preview-video" controls></video>`;
-    } else if (media.type === 'audio') {
-      mediaPreview = `
-        <div class="media-audio-placeholder">
-          <span style="font-size: 48px;">🎵</span>
-        </div>
-        <audio src="${media.url}" controls class="media-audio-player"></audio>
-      `;
-    }
+    // Preview com link para mídia (apenas para imagens)
+    const preview = media.type === 'image'
+      ? `<a href="${media.url}" target="_blank" class="media-preview-link">
+           <img src="${media.url}" alt="${media.filename}" class="media-thumb" />
+         </a>`
+      : '';
+
+    const title = media.title || media.filename;
+    const titleWithPreview = preview
+      ? `${preview}<span class="media-name">${title}</span>`
+      : `<span class="media-name">${title}</span>`;
 
     return `
-      <div class="media-card" data-uuid="${media.uuid}">
-        <div class="media-preview">
-          ${mediaPreview}
-        </div>
-        <div class="media-info">
-          <div class="media-title">${typeIcon} ${media.title || media.filename}</div>
-          ${media.description ? `<div class="media-description">${media.description}</div>` : ''}
-          <div class="media-meta">
-            <span>${sizeMB} MB</span>
-            <span>${formattedDate}</span>
-          </div>
-        </div>
-        <div class="media-actions">
-          <button class="btn btn-secondary btn-sm" onclick="deleteMedia('${media.uuid}', '${media.filename}')">🗑️ Excluir</button>
-        </div>
-      </div>
+      <tr class="media-row" data-uuid="${media.uuid}">
+        <td class="type-cell">${typeIcon}</td>
+        <td class="name-cell">
+          ${titleWithPreview}
+          ${media.description ? `<div class="media-desc-small">${media.description}</div>` : ''}
+        </td>
+        <td class="size-cell">${sizeMB} MB</td>
+        <td class="date-cell">${formattedDate}</td>
+        <td class="actions-cell">
+          <button
+            class="btn btn-secondary btn-sm"
+            onclick="deleteMedia('${media.uuid}', '${media.filename}')"
+            title="Excluir"
+          >
+            🗑️
+          </button>
+        </td>
+      </tr>
     `;
   }).join('');
+}
+
+// Render pagination controls
+function renderPaginationControls() {
+  const container = document.getElementById('paginationControls');
+  const { currentPage, totalPages, hasNext, hasPrev } = appState.mediaPagination;
+
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  // Calcular range de páginas a mostrar (máximo 7 páginas visíveis)
+  const maxVisible = 7;
+  let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+  if (endPage - startPage + 1 < maxVisible) {
+    startPage = Math.max(1, endPage - maxVisible + 1);
+  }
+
+  let pagesHTML = '';
+
+  // Primeira página
+  if (startPage > 1) {
+    pagesHTML += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+    if (startPage > 2) {
+      pagesHTML += `<span class="page-ellipsis">...</span>`;
+    }
+  }
+
+  // Páginas intermediárias
+  for (let i = startPage; i <= endPage; i++) {
+    const activeClass = i === currentPage ? 'active' : '';
+    pagesHTML += `<button class="page-btn ${activeClass}" onclick="goToPage(${i})">${i}</button>`;
+  }
+
+  // Última página
+  if (endPage < totalPages) {
+    if (endPage < totalPages - 1) {
+      pagesHTML += `<span class="page-ellipsis">...</span>`;
+    }
+    pagesHTML += `<button class="page-btn" onclick="goToPage(${totalPages})">${totalPages}</button>`;
+  }
+
+  container.innerHTML = `
+    <div class="pagination-wrapper">
+      <button
+        class="pagination-btn"
+        onclick="prevPage()"
+        ${!hasPrev ? 'disabled' : ''}
+      >
+        ← Anterior
+      </button>
+
+      <div class="pagination-pages">
+        ${pagesHTML}
+      </div>
+
+      <button
+        class="pagination-btn"
+        onclick="nextPage()"
+        ${!hasNext ? 'disabled' : ''}
+      >
+        Próxima →
+      </button>
+    </div>
+  `;
 }
 
 // Delete media
@@ -256,7 +419,18 @@ async function deleteMedia(uuid, filename) {
       throw new Error(data.error || 'Erro ao excluir mídia');
     }
 
-    await loadMediaGallery(); // Reload gallery
+    // Smart page adjustment: se deletamos o último item de uma página que não é a primeira,
+    // voltar para a página anterior
+    const { currentPage } = appState.mediaPagination;
+    const itemsOnCurrentPage = appState.mediaGallery.length;
+
+    if (itemsOnCurrentPage === 1 && currentPage > 1) {
+      // Deletando último item de uma página que não é a primeira
+      await loadMediaGallery(currentPage - 1);
+    } else {
+      // Caso contrário, manter página atual
+      await loadMediaGallery(currentPage);
+    }
 
   } catch (error) {
     errorDiv.textContent = error.message;
@@ -272,11 +446,6 @@ function debounce(func, wait) {
     timeout = setTimeout(() => func.apply(this, args), wait);
   };
 }
-
-// Search media (debounced)
-const searchMedia = debounce(function(searchTerm) {
-  loadMediaGallery(searchTerm);
-}, 500);
 
 function formatDate(date) {
   return new Intl.DateTimeFormat('pt-BR', {
@@ -673,14 +842,31 @@ window.addEventListener('DOMContentLoaded', () => {
     uploadMediaForm.addEventListener('submit', uploadMedia);
   }
 
-  // Search input listener
+  // Search input listener (atualizado para usar nova função)
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
       const currentPage = document.querySelector('.page.active').id;
       if (currentPage === 'dashboardPage') {
-        searchMedia(e.target.value);
+        searchMediaDebounced(e.target.value);  // Usar nova função debounced
       }
+    });
+  }
+
+  // Filtro de tipo
+  const typeFilter = document.getElementById('typeFilter');
+  if (typeFilter) {
+    typeFilter.addEventListener('change', (e) => {
+      filterByType(e.target.value);
+    });
+  }
+
+  // Filtro de ordenação
+  const sortFilter = document.getElementById('sortFilter');
+  if (sortFilter) {
+    sortFilter.addEventListener('change', (e) => {
+      const [sortBy, sortOrder] = e.target.value.split('-');
+      sortMedia(sortBy, sortOrder);
     });
   }
 });
