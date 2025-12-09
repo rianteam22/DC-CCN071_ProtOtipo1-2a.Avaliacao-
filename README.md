@@ -1,4 +1,4 @@
-# AWS S33 Drives - Sistema de Autenticação
+# AWS S3 Drives - Sistema de Autenticação
 
 Protótipo de aplicação web com sistema completo de autenticação, gerenciamento de perfis e hospedagem na AWS.
 

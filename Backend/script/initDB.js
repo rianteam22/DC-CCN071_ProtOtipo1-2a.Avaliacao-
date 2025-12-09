@@ -1,34 +1,25 @@
 const sequelize = require('../config/database');
 const User = require('../models/User');
-const fs = require('fs');
-const path = require('path');
-const {makeDirUsers} = require('./uploadUser');
 
 async function initDatabase() {
   try {
-    console.log('Iniciando conexão com o banco de dados...');
-    
+    console.log('Iniciando conexão com o banco de dados PostgreSQL (AWS RDS)...');
+
     // Testar conexão
     await sequelize.authenticate();
     console.log('Conexão estabelecida com sucesso!');
-    
-    // Sincronizar modelos 
+
+    // Sincronizar modelos
     console.log('Sincronizando modelos...');
-    await sequelize.sync({ 
-      force: true,
-      alter: true  
+    await sequelize.sync({
+      force: true,  // ⚠️ CUIDADO: Apaga e recria as tabelas
+      alter: true
     });
     console.log('Tabelas criadas/sincronizadas com sucesso!');
-    
-    const uploadsPath = path.resolve(__dirname, '..', 'uploads'); // criar pasta uploads
-    if (!fs.existsSync(uploadsPath)) {
-      fs.mkdirSync(uploadsPath, { recursive: true });
-      console.log('Pasta uploads/ criada');
-    }
 
     await defaultUser();
-    
-    // comando basicos de teste
+
+    // Comandos básicos de teste
     const userCount = await User.count();
     console.log(`Total de usuários no banco: ${userCount}`);
     console.log('Usuários existentes:');
@@ -36,9 +27,8 @@ async function initDatabase() {
     users.forEach(user => {
       console.log(user.toJSON());
     });
-    console.log('\nBanco de dados inicializado com sucesso!');
-    console.log(`Arquivo do banco: ${sequelize.options.storage}`);
-    
+    console.log('\nBanco de dados PostgreSQL inicializado com sucesso!');
+
   } catch (error) {
     console.error('Erro ao inicializar banco de dados:', error);
     process.exit(1);
@@ -54,8 +44,7 @@ async function defaultUser(){
       senha: '123456'
     })
     console.log('#### Usuário padrão criado:', userDefault.toJSON());
-    await makeDirUsers(userDefault.uuid);
-    
+
   } catch (error) {
     console.error('Erro ao criar usuário padrão:', error);
   }
