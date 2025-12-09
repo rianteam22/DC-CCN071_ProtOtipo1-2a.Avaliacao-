@@ -193,7 +193,7 @@ async function loadProfileData() {
     document.getElementById('profileDescription').value = usuario.description || '';
     document.getElementById('profileEmail').value = usuario.email;
     document.getElementById('profileCreatedAt').value = formatDate(usuario.timestamp_created);
-    document.getElementById('profilePhotoDisplay').style.backgroundImage = usuario.profile_pic ? `url(${server}/profile/photo/${usuario.uuid})` : 'none';
+    document.getElementById('profilePhotoDisplay').style.backgroundImage = usuario.profile_pic ? `url(${usuario.profile_pic})` : 'none';
     if (usuario.profile_pic) {
       document.getElementById('photoPlaceholder').style.display = 'none';
     } else {
@@ -410,7 +410,7 @@ function renderDashboard() {
       <p><strong>Nome:</strong> ${user.name || 'Não definido'}</p>
       <p><strong>Descrição:</strong> ${user.description || 'Sem descrição'}</p>
       <p><strong>Conta criada em:</strong> ${formatDate(user.timestamp_created)}</p>
-      ${user.profile_pic ? `<p><strong>Foto de perfil:</strong> <img src="${server}/profile/photo/${user.uuid}" alt="Foto" style="max-width: 100px; border-radius: 50%; margin-top: 8px;"></p>` : ''}
+      ${user.profile_pic ? `<p><strong>Foto de perfil:</strong> <img src="${user.profile_pic}" alt="Foto" style="max-width: 100px; border-radius: 50%; margin-top: 8px;"></p>` : ''}
     </div>
     
     <div class="empty-state">
