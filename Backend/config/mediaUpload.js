@@ -1,7 +1,7 @@
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 const s3Client = require('./s3');
-const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { DeleteObjectCommand, HeadObjectCommand } = require('@aws-sdk/client-s3');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
@@ -131,31 +131,51 @@ const mediaUpload = multer({
 });
 
 // Middleware customizado para validar tamanho após upload
-const validateMediaSize = (req, res, next) => {
+const validateMediaSize = async (req, res, next) => {
   if (!req.file) {
     return next();
   }
 
-  const mediaType = req.mediaType;
-  const config = FILE_TYPES[mediaType];
-
-  if (req.file.size > config.maxSize) {
-    // Arquivo já foi enviado ao S3, precisamos deletá-lo
-    const deleteParams = {
+  try {
+    // multer-s3 não fornece o tamanho real do arquivo
+    // Precisamos obter via HeadObject do S3
+    const headParams = {
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: req.file.key
     };
 
-    s3Client.send(new DeleteObjectCommand(deleteParams))
-      .catch(err => console.error('Erro ao deletar arquivo inválido do S3:', err));
+    const headResponse = await s3Client.send(new HeadObjectCommand(headParams));
+    const fileSize = headResponse.ContentLength;
 
-    const maxSizeMB = config.maxSize / (1024 * 1024);
-    return res.status(400).json({
-      error: `Arquivo ${mediaType} muito grande. Tamanho máximo: ${maxSizeMB}MB`
-    });
+    // Armazenar o tamanho real no req.file
+    req.file.size = fileSize;
+
+    const mediaType = req.mediaType;
+    const config = FILE_TYPES[mediaType];
+
+    if (fileSize > config.maxSize) {
+      // Arquivo muito grande, deletar do S3
+      const deleteParams = {
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: req.file.key
+      };
+
+      await s3Client.send(new DeleteObjectCommand(deleteParams));
+
+      const maxSizeMB = config.maxSize / (1024 * 1024);
+      return res.status(400).json({
+        error: `Arquivo ${mediaType} muito grande. Tamanho máximo: ${maxSizeMB}MB`
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Erro ao validar tamanho do arquivo:', error);
+    // Em caso de erro, tentar usar Content-Length do header como fallback
+    const contentLength = parseInt(req.headers['content-length']) || 0;
+    req.file.size = contentLength;
+    next();
   }
-
-  next();
 };
 
 module.exports = {
