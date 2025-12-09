@@ -11,8 +11,8 @@ require('dotenv').config();
 // Configurações de tipos de arquivo
 const FILE_TYPES = {
   image: {
-    extensions: /jpeg|jpg|png|gif|webp/,
-    mimetypes: /^image\/(jpeg|jpg|png|gif|webp)$/,
+    extensions: /jpeg|jpg|png|gif|webp|svg/,
+    mimetypes: /^image\/(jpeg|jpg|png|gif|webp|svg\+xml)$/,
     maxSize: 5 * 1024 * 1024, // 5MB
     folder: 'imagens'
   },
@@ -23,8 +23,8 @@ const FILE_TYPES = {
     folder: 'videos'
   },
   audio: {
-    extensions: /mp3|wav|ogg|m4a|aac/,
-    mimetypes: /^audio\/(mpeg|wav|ogg|mp4|aac|x-m4a)$/,
+    extensions: /mp3|wav|ogg|m4a|aac|flac/,
+    mimetypes: /^audio\/(mpeg|wav|ogg|mp4|aac|x-m4a|flac|x-flac)$/,
     maxSize: 20 * 1024 * 1024, // 20MB
     folder: 'audios'
   }

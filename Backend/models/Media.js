@@ -194,6 +194,14 @@ Media.associate = function(models) {
     foreignKey: 'userId',
     as: 'user'
   });
+
+  // Associação com Tags (N:N)
+  Media.belongsToMany(models.Tag, {
+    through: 'MediaTags',
+    foreignKey: 'mediaId',
+    otherKey: 'tagId',
+    as: 'tags'
+  });
 };
 
 module.exports = Media;

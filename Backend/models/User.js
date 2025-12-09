@@ -10,7 +10,6 @@ const User = sequelize.define('User', {
     autoIncrement: true
   },
   
-  // UUID na criação
   uuid: {
     type: DataTypes.UUID,
     defaultValue: () => uuidv4(),
@@ -19,7 +18,6 @@ const User = sequelize.define('User', {
     comment: 'Identificador único universal - gerado automaticamente na criação'
   },
   
-  // EMAIL - OBRIGATÓRIO 
   email: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -35,7 +33,6 @@ const User = sequelize.define('User', {
     comment: 'Email do usuário - obrigatório e único'
   },
   
-  // SENHA - OBRIGATÓRIO 
   senha: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -51,7 +48,6 @@ const User = sequelize.define('User', {
     comment: 'Senha hash do usuário - obrigatório'
   },
   
-  // USERNAME 
   user: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -62,25 +58,22 @@ const User = sequelize.define('User', {
         msg: 'Username deve ter entre 3 e 30 caracteres'
       }
     },
-    comment: 'Nome de usuário único - opcional, pode ser preenchido depois'
+    comment: 'Nome de usuário único - opcional'
   },
   
-  // NAME 
   name: {
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'Nome completo do usuário - opcional'
   },
   
-  // PROFILE_PIC 
   profile_pic: {
     type: DataTypes.STRING,
     allowNull: true,
     defaultValue: null,
-    comment: 'Caminho físico da foto de perfil no servidor: ./uploads/{uuid}/profile.jpg'
+    comment: 'URL da foto de perfil no S3'
   },
   
-  // DESCRIPTION 
   description: {
     type: DataTypes.TEXT,
     allowNull: true,
@@ -94,12 +87,11 @@ const User = sequelize.define('User', {
     comment: 'Biografia/descrição do usuário - opcional'
   },
   
-  // TIMESTAMP_CREATED 
   timestamp_created: {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW,
-    comment: 'Data e hora de criação da conta - gerado automaticamente'
+    comment: 'Data e hora de criação da conta'
   }
 }, {
   tableName: 'users',
@@ -128,7 +120,7 @@ const User = sequelize.define('User', {
 
 // HOOKS 
 
-// Hook: Hash de senha 
+// Hash de senha antes de criar
 User.beforeCreate(async (user) => {
   if (user.senha) {
     const salt = await bcrypt.genSalt(10);
@@ -136,7 +128,7 @@ User.beforeCreate(async (user) => {
   }
 });
 
-// Hook: Hash de senha 
+// Hash de senha antes de atualizar
 User.beforeUpdate(async (user) => {
   if (user.changed('senha')) {
     const salt = await bcrypt.genSalt(10);
@@ -146,40 +138,41 @@ User.beforeUpdate(async (user) => {
 
 // MÉTODOS DE INSTÂNCIA
 
-// Método: Validar senha no login
+// Validar senha no login
 User.prototype.validPassword = async function(senha) {
   return await bcrypt.compare(senha, this.senha);
 };
 
-//Método: Obter URL da foto de perfil (agora retorna URL do S3)
+// Obter URL da foto de perfil
 User.prototype.getProfilePicPath = function() {
   return this.profile_pic || null;
 };
 
-// Método: Verificar se perfil está completo
+// Verificar se perfil está completo
 User.prototype.isProfileComplete = function() {
   return !!(this.user && this.name && this.profile_pic);
 };
 
-// Método: json sem campo senha
+// JSON sem campo senha
 User.prototype.toJSON = function() {
   const values = { ...this.get() };
   delete values.senha; 
   return values;
 };
 
+// MÉTODOS ESTÁTICOS
 
-// Método: Buscar por email
+// Buscar por email
 User.findByEmail = async function(email) {
   return await this.findOne({ where: { email } });
 };
 
-// Método: Buscar por username
+// Buscar por username
 User.findByUsername = async function(username) {
   return await this.findOne({ where: { user: username } });
 };
 
-// Método: Buscar por UUID
+// Buscar por UUID
 User.findByUuid = async function(uuid) {
   return await this.findOne({ where: { uuid } });
 };
@@ -189,6 +182,12 @@ User.associate = function(models) {
   User.hasMany(models.Media, {
     foreignKey: 'userId',
     as: 'media',
+    onDelete: 'CASCADE'
+  });
+
+  User.hasMany(models.Tag, {
+    foreignKey: 'userId',
+    as: 'tags',
     onDelete: 'CASCADE'
   });
 };

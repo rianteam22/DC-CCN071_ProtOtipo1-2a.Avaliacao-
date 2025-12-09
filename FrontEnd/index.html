@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS S3 Drives</title>
+    <title>AWS S3 Drives - SGM</title>
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
@@ -12,6 +12,7 @@
         <div class="login-page">
             <div class="login-header">
                 <h1 class="app-title">AWS S3 Drives</h1>
+                <p style="color: var(--color-text-secondary); margin-top: 8px;">Sistema de Gerenciamento Multimídia</p>
             </div>
             <div class="login-card">
                 <form id="loginForm">
@@ -101,67 +102,33 @@
                     <form id="profileForm" class="profile-form">
                         <div class="form-group">
                             <label class="form-label" for="profileName">Nome Completo</label>
-                            <input 
-                                type="text" 
-                                id="profileName" 
-                                class="form-input" 
-                                placeholder="Seu nome completo"
-                                required
-                            />
+                            <input type="text" id="profileName" class="form-input" placeholder="Seu nome completo" required />
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="profileUsername">Nome de Usuário</label>
-                            <input 
-                                type="text" 
-                                id="profileUsername" 
-                                class="form-input" 
-                                placeholder="nomedeusuario"
-                                required
-                            />
+                            <input type="text" id="profileUsername" class="form-input" placeholder="nomedeusuario" required />
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="profileEmail">Email</label>
-                            <input 
-                                type="email" 
-                                id="profileEmail" 
-                                class="form-input" 
-                                readonly
-                            />
+                            <input type="email" id="profileEmail" class="form-input" readonly />
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="profileNewEmail">Novo Email</label>
-                            <input 
-                                type="email" 
-                                id="profileNewEmail" 
-                                class="form-input" 
-                            />
+                            <input type="email" id="profileNewEmail" class="form-input" />
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="profilePassword">Nova Senha (opcional)</label>
-                            <input 
-                                type="password" 
-                                id="profilePassword" 
-                                class="form-input" 
-                                placeholder="••••••••"
-                            />
+                            <input type="password" id="profilePassword" class="form-input" placeholder="••••••••" />
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="profileDescription">Descrição Pessoal</label>
-                            <textarea 
-                                id="profileDescription" 
-                                class="form-input" 
-                                placeholder="Conte um pouco sobre você..."
-                            ></textarea>
+                            <textarea id="profileDescription" class="form-input" placeholder="Conte um pouco sobre você..."></textarea>
                         </div>
                         <div class="form-group">
                             <label class="form-label" for="profileCreatedAt">Data de Criação</label>
-                            <input 
-                                type="text" 
-                                id="profileCreatedAt" 
-                                class="form-input" 
-                                readonly
-                            />
+                            <input type="text" id="profileCreatedAt" class="form-input" readonly />
                         </div>
+                        <div id="profileError" class="error-message"></div>
                         <div class="form-actions">
                             <button type="submit" class="btn btn-primary">Salvar Perfil</button>
                             <button type="button" class="btn btn-secondary" id="skipProfile">Pular</button>
@@ -178,29 +145,32 @@
             <div class="dashboard-header">
                 <h1 class="dashboard-title">Meus Arquivos</h1>
                 <div style="display: flex; gap: 12px;">
-                    <button class="btn btn-secondary btn-logout" id="profileBtn">👤 Perfil</button>
+                    <button class="btn btn-secondary" id="tagsBtn">🏷️ Tags</button>
+                    <button class="btn btn-secondary" id="profileBtn">👤 Perfil</button>
                     <button class="btn btn-secondary btn-logout" id="logoutBtn">Sair</button>
                 </div>
             </div>
+            
             <div class="search-section">
                 <input 
                     type="text" 
                     id="searchInput" 
                     class="search-input" 
-                    placeholder="Buscar arquivos..."
+                    placeholder="Buscar por nome, título ou descrição..."
                 />
             </div>
+            
             <div class="items-list">
-                <div class="media-gallery-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-24);">
+                <div class="media-gallery-header">
                     <h2 class="items-title">Galeria de Mídia</h2>
                     <button id="uploadMediaBtn" class="btn btn-primary">📤 Upload de Mídia</button>
                 </div>
 
                 <!-- Barra de filtros -->
-                <div class="media-filters" style="display: flex; gap: var(--space-12); margin-bottom: var(--space-16); flex-wrap: wrap; align-items: center;">
+                <div class="media-filters">
                     <!-- Filtro por tipo -->
                     <div class="filter-group">
-                        <label style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-right: var(--space-8);">Tipo:</label>
+                        <label>Tipo:</label>
                         <select id="typeFilter" class="filter-select">
                             <option value="">Todos</option>
                             <option value="image">🖼️ Imagens</option>
@@ -209,9 +179,18 @@
                         </select>
                     </div>
 
+                    <!-- Filtro por tag -->
+                    <div class="filter-group">
+                        <label>Tag:</label>
+                        <select id="tagFilter" class="filter-select">
+                            <option value="">Todas</option>
+                            <!-- Populado via JS -->
+                        </select>
+                    </div>
+
                     <!-- Ordenação -->
                     <div class="filter-group">
-                        <label style="font-size: var(--font-size-sm); color: var(--color-text-secondary); margin-right: var(--space-8);">Ordenar:</label>
+                        <label>Ordenar:</label>
                         <select id="sortFilter" class="filter-select">
                             <option value="created_at-DESC">Mais recentes</option>
                             <option value="created_at-ASC">Mais antigos</option>
@@ -223,7 +202,7 @@
                     </div>
 
                     <!-- Info de resultados -->
-                    <div class="filter-info" style="margin-left: auto; font-size: var(--font-size-sm); color: var(--color-text-secondary);">
+                    <div class="filter-info">
                         <span id="resultsCount">Carregando...</span>
                     </div>
                 </div>
@@ -238,8 +217,9 @@
                                 <th style="width: 50px;">Tipo</th>
                                 <th style="width: 80px;">Preview</th>
                                 <th>Nome</th>
-                                <th style="width: 150px;">Tamanho</th>
-                                <th style="width: 180px;">Data</th>
+                                <th style="width: 200px;">Tags</th>
+                                <th style="width: 100px;">Tamanho</th>
+                                <th style="width: 150px;">Data</th>
                                 <th style="width: 100px;">Ações</th>
                             </tr>
                         </thead>
@@ -250,76 +230,114 @@
                 </div>
 
                 <!-- Controles de paginação -->
-                <div id="paginationControls" class="pagination-controls" style="margin-top: var(--space-24);">
-                    <!-- Renderizado via JS -->
-                </div>
+                <div id="paginationControls" class="pagination-controls"></div>
             </div>
         </div>
     </div>
 
-    <div id="senhaModal" style="display:none; position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.3);align-items:center;justify-content:center;">
-  <div class="modal-card">
-    <h3>Digite sua senha atual:</h3>
-    <input type="password" id="senhaInput" style="margin-bottom:12px;width:100%;" autofocus>
-    <div class="modal-actions">
-      <button id="confirmSenhaBtn" class="btn btn-primary">Confirmar</button>
-      <button onclick="closeSenhaModal()" class="btn btn-secondary">Cancelar</button>
+    <!-- Modal de Senha -->
+    <div id="senhaModal" class="modal-overlay">
+        <div class="modal-card">
+            <h3>Digite sua senha atual:</h3>
+            <input type="password" id="senhaInput" class="form-input modal-input" autofocus>
+            <div class="modal-actions">
+                <button id="confirmSenhaBtn" class="btn btn-primary">Confirmar</button>
+                <button onclick="closeSenhaModal()" class="btn btn-secondary">Cancelar</button>
+            </div>
+        </div>
     </div>
-  </div>
+
+    <!-- Modal de Upload -->
+    <div id="uploadMediaModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 550px;">
+            <h3 style="margin-bottom: var(--space-16);">📤 Upload de Mídia</h3>
+            <div id="uploadError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
+
+            <form id="uploadMediaForm">
+                <div class="form-group">
+                    <label class="form-label">Arquivo</label>
+                    <input type="file" id="mediaFileInput" accept="image/*,video/*,audio/*" required class="form-input" />
+                    <small style="color: var(--color-text-secondary); display: block; margin-top: var(--space-8);">
+                        Imagens (5MB) • Vídeos (100MB) • Áudios (20MB)
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Título (opcional)</label>
+                    <input type="text" id="mediaTitleInput" maxlength="255" placeholder="Ex: Foto de Férias 2024" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Descrição (opcional)</label>
+                    <textarea id="mediaDescriptionInput" maxlength="1000" placeholder="Adicione uma descrição..." rows="2" class="form-input"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Tags (opcional)</label>
+                    <div id="uploadTagsContainer" class="tags-selector">
+                        <!-- Tags renderizadas via JS -->
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="button" onclick="closeUploadModal()" class="btn btn-secondary">Cancelar</button>
+                    <button type="submit" id="uploadSubmitBtn" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
     </div>
 
-    <!-- Upload Media Modal -->
-    <div id="uploadMediaModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center;">
-      <div class="modal-card" style="max-width: 500px; width: 90%;">
-        <h3 style="margin-bottom: var(--space-16);">Upload de Mídia</h3>
-        <div id="uploadError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
+    <!-- Modal de Gerenciamento de Tags -->
+    <div id="tagsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>🏷️ Gerenciar Tags</h3>
+                <button onclick="closeTagsModal()" class="modal-close">✕</button>
+            </div>
 
-        <form id="uploadMediaForm">
-          <div style="margin-bottom: var(--space-16);">
-            <label style="display: block; margin-bottom: var(--space-8); font-weight: 500;">Arquivo</label>
-            <input
-              type="file"
-              id="mediaFileInput"
-              accept="image/*,video/*,audio/*"
-              required
-              style="width: 100%; padding: var(--space-12); border: 2px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface);"
-            />
-            <small style="color: var(--color-text-secondary); display: block; margin-top: var(--space-8);">
-              Imagens (5MB) • Vídeos (100MB) • Áudios (20MB)
-            </small>
-          </div>
+            <div id="tagsError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
 
-          <div style="margin-bottom: var(--space-16);">
-            <label style="display: block; margin-bottom: var(--space-8); font-weight: 500;">Título (opcional)</label>
-            <input
-              type="text"
-              id="mediaTitleInput"
-              maxlength="255"
-              placeholder="Ex: Foto de Férias 2024"
-              style="width: 100%; padding: var(--space-12); border: 2px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface);"
-            />
-          </div>
+            <!-- Criar nova tag -->
+            <div class="tag-create-form">
+                <input type="text" id="newTagName" class="form-input" placeholder="Nome da nova tag" maxlength="50" />
+                <input type="color" id="newTagColor" class="color-picker" value="#3B82F6" />
+                <button onclick="createTag()" class="btn btn-primary">Criar</button>
+            </div>
 
-          <div style="margin-bottom: var(--space-24);">
-            <label style="display: block; margin-bottom: var(--space-8); font-weight: 500;">Descrição (opcional)</label>
-            <textarea
-              id="mediaDescriptionInput"
-              maxlength="1000"
-              placeholder="Adicione uma descrição..."
-              rows="3"
-              style="width: 100%; padding: var(--space-12); border: 2px solid var(--color-border); border-radius: var(--radius-base); background: var(--color-surface); resize: vertical; font-family: inherit;"
-            ></textarea>
-          </div>
+            <!-- Lista de tags -->
+            <div id="tagsListContainer" class="tags-list">
+                <!-- Tags renderizadas via JS -->
+            </div>
 
-          <div class="modal-actions" style="display: flex; gap: var(--space-12); justify-content: flex-end;">
-            <button type="button" onclick="closeUploadModal()" class="btn btn-secondary">Cancelar</button>
-            <button type="submit" id="uploadSubmitBtn" class="btn btn-primary">Upload</button>
-          </div>
-        </form>
-      </div>
+            <div class="modal-footer">
+                <button onclick="closeTagsModal()" class="btn btn-secondary">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Editar Tags da Mídia -->
+    <div id="editMediaTagsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3>🏷️ Editar Tags</h3>
+                <button onclick="closeEditMediaTagsModal()" class="modal-close">✕</button>
+            </div>
+
+            <p id="editMediaTagsInfo" style="color: var(--color-text-secondary); margin-bottom: var(--space-16);"></p>
+
+            <div id="editMediaTagsError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
+
+            <div id="editMediaTagsContainer" class="tags-selector">
+                <!-- Tags renderizadas via JS -->
+            </div>
+
+            <div class="modal-actions" style="margin-top: var(--space-24);">
+                <button onclick="closeEditMediaTagsModal()" class="btn btn-secondary">Cancelar</button>
+                <button onclick="saveMediaTags()" id="saveMediaTagsBtn" class="btn btn-primary">Salvar</button>
+            </div>
+        </div>
     </div>
 
     <script src="index.js"></script>
 </body>
 </html>
-

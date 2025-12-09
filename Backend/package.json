@@ -1,14 +1,21 @@
 {
-  "name": "backend",
+  "name": "sgm-backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Sistema de Gerenciamento Multimídia - Backend",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "init-db": "node ./script/initDB.js",
-    "dev": "nodemon index.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "multimedia",
+    "aws",
+    "s3",
+    "nodejs",
+    "express"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -24,11 +31,14 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "multer-s3": "^3.0.1",
-    "nodemon": "^3.1.10",
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.7",
     "sharp": "^0.34.5",
+    "sqlite3": "^5.1.7",
     "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
   }
 }

@@ -1,84 +1,78 @@
-//TODO 
-// ROTAS DE GET (user info e foto de perfil)
-// TODO GET FILES DO BUCKET S3
-// ROTAS DE POST (login, register, upload de foto de perfil)
-// TODO POST FILES NO BUCKET S3
-// ROTAS DE PUT (profile update)
-// TODO PUT PROFILE
-// ROTAS DE DELETE
-// TODO DELETE PROFILE
-// AUTENTICAÇÃO (jwt implementado)
-// TODO UUID E EMAIL UNICOS (implementado)
-// MIDDLEWARES (cors, json, autenticação)
-// TODO CHECAGEM DE TIPO DE FILES
-// CONEXÃO COM BANCO DE DADOS (sequelize orm, sqlite database)
-// TODO CRIPTOGRAFIA DE SENHAS (hash e salting com bcrypt)
-// TODO TESTES
-// TODO TESTES UNITÁRIOS E DE INTEGRAÇÃO
-
-// SCHEMA BANCO DE DADOS
-// EMAIL / USER / SENHA / NAME / PROFILE_PIC / DESCRIPTION / TIMESTAMP_CREATED / UUID
+// SGM - Sistema de Gerenciamento Multimídia
+// Backend com suporte a Tags para categorização
 
 const express = require('express');
 const app = express();
 const sequelize = require('./config/database');
 const User = require('./models/User');
 const Media = require('./models/Media');
+const Tag = require('./models/Tag');
+const MediaTag = require('./models/MediaTag');
 const upload = require('./config/upload');
 const mediaRoutes = require('./routes/mediaRoutes');
+const tagRoutes = require('./routes/tagRoutes');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 
 require('dotenv').config();
 
-
-
 const PORT = process.env.PORT || 3333;
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-//middleware
+console.log(`🔧 Ambiente: ${NODE_ENV}`);
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
 // Servir arquivos estáticos do frontend
 app.use(express.static(path.join(__dirname, '..', 'FrontEnd')));
 
+// Middleware de autenticação JWT
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token){
+  if (!token) {
     return res.status(401).json({ error: 'Token não fornecido' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err){
+    if (err) {
       return res.status(403).json({ error: 'Token inválido' });
     }
 
     req.user = user;
     next();
-
   });
 }
+
+// ============================================
+// ROTAS DA API
+// ============================================
 
 // Media routes (todas requerem autenticação)
 app.use('/api/media', authenticateToken, mediaRoutes);
 
-//GETs
-// Rota para ver a foto (retorna URL do S3)
+// Tag routes (todas requerem autenticação) 
+app.use('/api/tags', authenticateToken, tagRoutes);
+
+// ============================================
+// ROTAS DE PERFIL
+// ============================================
+
+// GET - Foto de perfil (retorna URL do S3)
 app.get('/profile/photo/:user', async (req, res) => {
   try {
     const { user } = req.params;
 
-    // Buscar usuário
     const usuario = await User.findByUuid(user);
 
     if (!usuario || !usuario.profile_pic) {
       return res.status(404).json({ error: 'Foto não encontrada' });
     }
 
-    // Retornar URL do S3 armazenada no banco
     res.json({
       url: usuario.profile_pic
     });
@@ -89,6 +83,7 @@ app.get('/profile/photo/:user', async (req, res) => {
   }
 });
 
+// GET - Dados do usuário autenticado
 app.get('/profile/me', authenticateToken, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
@@ -106,26 +101,32 @@ app.get('/profile/me', authenticateToken, async (req, res) => {
   }
 });
 
-//POSTs
+// ============================================
+// ROTAS DE AUTENTICAÇÃO
+// ============================================
+
+// POST - Login
 app.post('/login', async (req, res) => {
   try {
     const { email, senha } = req.body;
     
     const user = await User.findByEmail(email);
     
-    if(!user){
+    if (!user) {
       return res.status(401).json({ error: 'Email ou senha incorretos' });
     }
+    
     const senhaValida = await user.validPassword(senha);
-    if(!senhaValida){
+    if (!senhaValida) {
       return res.status(401).json({ error: 'Email ou senha incorretos' });
     }
     
     const token = jwt.sign(
-      { id: user.id, email: user.email, uuid: user.uuid},
+      { id: user.id, email: user.email, uuid: user.uuid },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     );
+    
     res.json({
       message: 'Login realizado com sucesso!',
       token: token,
@@ -137,6 +138,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
+// POST - Registro
 app.post('/register', async (req, res) => {
   try {
     const { email, senha } = req.body;
@@ -158,9 +160,16 @@ app.post('/register', async (req, res) => {
       email,
       senha 
     });
+
+    const token = jwt.sign(
+      { id: novoUsuario.id, email: novoUsuario.email, uuid: novoUsuario.uuid },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
     
     res.status(201).json({
       message: 'Conta criada com sucesso!',
+      token: token,
       user: novoUsuario.toJSON() 
     });
     
@@ -173,6 +182,7 @@ app.post('/register', async (req, res) => {
   }
 });
 
+// POST - Upload de foto de perfil
 app.post('/profile/upload-photo', authenticateToken, upload.single('profile_pic'), async (req, res) => {
   try {
     if (!req.file) {
@@ -195,9 +205,9 @@ app.post('/profile/upload-photo', authenticateToken, upload.single('profile_pic'
     res.json({
       message: 'Foto de perfil atualizada com sucesso!',
       file: {
-        key: req.file.key,           // Chave no S3: uploads/uuid/profile.jpg
-        url: profilePicUrl,          // URL pública do S3
-        bucket: req.file.bucket      // Nome do bucket
+        key: req.file.key,
+        url: profilePicUrl,
+        bucket: req.file.bucket
       },
       user: usuario.toJSON()
     });
@@ -208,18 +218,16 @@ app.post('/profile/upload-photo', authenticateToken, upload.single('profile_pic'
   }
 });
 
-
-
-//PUTs
+// PUT - Atualizar perfil
 app.put('/profile/update', authenticateToken, async (req, res) => {
   try {
     const { 
-      novoEmail,       // Novo email (opcional)
-      novaSenha,       // Nova senha (opcional)
+      novoEmail,
+      novaSenha,
       name, 
-      user,            // username
+      user,
       description,
-      senhaAtual       // Senha atual para validação
+      senhaAtual
     } = req.body;
     
     const usuario = await User.findByPk(req.user.id);
@@ -227,11 +235,10 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
     if (!usuario) {
       return res.status(404).json({ error: 'Usuário não encontrado' });
     }
-    //lista do que atualizou
+    
     const alteracoes = [];
     
-    // VALIDAÇÕES DE SEGURANÇA 
-    // validar senha
+    // Validações de segurança
     if ((novoEmail && novoEmail !== usuario.email) || novaSenha) {
       if (!senhaAtual) {
         return res.status(400).json({ 
@@ -245,10 +252,9 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
       }
     }
     
-    // atualizações a serem feitas
     const updates = {};
     
-    // validar user
+    // Validar user
     if (user && user !== usuario.user) {
       const userExists = await User.findByUsername(user);
       if (userExists) {
@@ -258,7 +264,7 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
       alteracoes.push('username');
     }
     
-    // validar email
+    // Validar email
     if (novoEmail && novoEmail !== usuario.email) {
       const emailExists = await User.findByEmail(novoEmail);
       if (emailExists) {
@@ -268,7 +274,7 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
       alteracoes.push('email');
     }
     
-    // validar e atualizar senha
+    // Validar e atualizar senha
     if (novaSenha) {
       if (novaSenha.length < 6) {
         return res.status(400).json({ 
@@ -279,7 +285,7 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
       alteracoes.push('senha');
     }
     
-    //Atualizar campos de perfil 
+    // Atualizar campos de perfil
     if (name !== undefined && name !== usuario.name) {
       updates.name = name;
       alteracoes.push('nome');
@@ -290,19 +296,13 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
       alteracoes.push('descrição');
     }
     
-    // VERIFICAR SE HÁ MUDANÇAS A SEREM FEITAS
-    
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ 
         message: 'Nenhuma alteração detectada' 
       });
     }
     
-    //APLICAR TODAS AS ALTERAÇÕES
-    
     await usuario.update(updates);
-    
-    // RESPONSE
     
     res.json({
       message: 'Perfil atualizado com sucesso!',
@@ -319,22 +319,29 @@ app.put('/profile/update', authenticateToken, async (req, res) => {
   }
 });
 
-// INICIALIZAR BANCO DE DADOS
+// ============================================
+// INICIALIZAÇÃO DO BANCO DE DADOS
+// ============================================
+
 async function initDatabase() {
   try {
     await sequelize.authenticate();
-    console.log('✅ Conexão com banco de dados PostgreSQL estabelecida');
+    console.log('✅ Conexão com banco de dados estabelecida');
+    console.log(`   Dialect: ${sequelize.getDialect()}`);
 
     // Inicializar associações entre modelos
-    const models = { User, Media };
+    const models = { User, Media, Tag, MediaTag };
+    
     Object.keys(models).forEach(modelName => {
       if (models[modelName].associate) {
         models[modelName].associate(models);
       }
     });
 
-    // ⚠️ NÃO usar sync em produção! Use migrations ou o script initDB.js
-    // await sequelize.sync({ alter: true }); // REMOVIDO para evitar erros
+    console.log('✅ Associações de modelos inicializadas');
+
+    // NÃO usar sync aqui - use npm run init-db para criar/alterar tabelas
+    // O sync({ alter: true }) causa problemas com constraints no SQLite
 
   } catch (error) {
     console.error('❌ Erro ao conectar ao banco:', error);
@@ -342,8 +349,13 @@ async function initDatabase() {
   }
 }
 
+// ============================================
+// INICIAR SERVIDOR
+// ============================================
+
 initDatabase().then(() => {
   app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`   URL: http://localhost:${PORT}`);
   });
 });

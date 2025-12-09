@@ -1,5 +1,8 @@
 # Ignorar dependências e arquivos temporários do Node.js
 
+pathfinder.py
+tree.md
+
 # Dependências
 node_modules/
 jspm_packages/

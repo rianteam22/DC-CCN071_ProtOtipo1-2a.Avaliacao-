@@ -1,5 +1,7 @@
 const Media = require('../models/Media');
 const User = require('../models/User');
+const Tag = require('../models/Tag');
+const MediaTag = require('../models/MediaTag');
 const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
 const { Op } = require('sequelize');
@@ -19,7 +21,7 @@ async function uploadMedia(req, res) {
     }
 
     // Dados do arquivo (fornecidos pelo multer-s3 e middleware)
-    const { title, description } = req.body;
+    const { title, description, tagUuids } = req.body;
 
     // Gerar thumbnail
     let thumbnailData = { thumbnail_url: null, thumbnail_s3_key: null };
@@ -61,9 +63,43 @@ async function uploadMedia(req, res) {
       mimetype: req.file.mimetype
     });
 
+    // Processar tags se fornecidas
+    let associatedTags = [];
+    if (tagUuids) {
+      try {
+        const tagIds = JSON.parse(tagUuids);
+        if (Array.isArray(tagIds) && tagIds.length > 0) {
+          // Buscar tags válidas do usuário
+          const tags = await Tag.findAll({
+            where: {
+              uuid: tagIds,
+              userId: usuario.id
+            }
+          });
+
+          // Criar associações
+          const associations = tags.map(tag => ({
+            mediaId: media.id,
+            tagId: tag.id
+          }));
+
+          if (associations.length > 0) {
+            await MediaTag.bulkCreate(associations, { ignoreDuplicates: true });
+            associatedTags = tags.map(t => t.toJSON());
+          }
+        }
+      } catch (tagError) {
+        console.error('Erro ao processar tags:', tagError);
+        // Não bloquear upload se tags falharem
+      }
+    }
+
     res.status(201).json({
       message: 'Mídia enviada com sucesso!',
-      media: media.toJSON()
+      media: {
+        ...media.toJSON(),
+        tags: associatedTags
+      }
     });
 
   } catch (error) {
@@ -89,7 +125,17 @@ async function uploadMedia(req, res) {
 // GET /media - Listar todas as mídias do usuário autenticado
 async function listUserMedia(req, res) {
   try {
-    const { type, active, search, limit = 20, page = 1, sortBy = 'created_at', sortOrder = 'DESC' } = req.query;
+    const { 
+      type, 
+      active, 
+      search, 
+      tag,           // Filtro por UUID de tag
+      tags,          // Filtro por múltiplos UUIDs de tags (JSON array)
+      limit = 20, 
+      page = 1, 
+      sortBy = 'created_at', 
+      sortOrder = 'DESC' 
+    } = req.query;
 
     // Validação de paginação
     const pageNum = Math.max(1, parseInt(page) || 1);
@@ -97,7 +143,7 @@ async function listUserMedia(req, res) {
     const offset = (pageNum - 1) * limitNum;
 
     // Validação de ordenação
-    const validSortFields = ['created_at', 'size', 'filename'];
+    const validSortFields = ['created_at', 'size', 'filename', 'title'];
     const validSortOrders = ['ASC', 'DESC'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
     const sortDirection = validSortOrders.includes(sortOrder.toUpperCase()) ? sortOrder.toUpperCase() : 'DESC';
@@ -116,28 +162,114 @@ async function listUserMedia(req, res) {
       where.active = true;
     }
 
-    // Filtro de busca por filename
+    // Filtro de busca por filename, title e description
     if (search) {
-      where.filename = { [Op.like]: `%${search}%` };
+      where[Op.or] = [
+        { filename: { [Op.iLike]: `%${search}%` } },
+        { title: { [Op.iLike]: `%${search}%` } },
+        { description: { [Op.iLike]: `%${search}%` } }
+      ];
+    }
+
+    // Filtro por tags
+    let tagFilter = [];
+    if (tag) {
+      tagFilter = [tag];
+    } else if (tags) {
+      try {
+        tagFilter = JSON.parse(tags);
+      } catch (e) {
+        // Ignorar erro de parse
+      }
+    }
+
+    let mediaIds = null;
+    if (tagFilter.length > 0) {
+      // Buscar tags do usuário
+      const userTags = await Tag.findAll({
+        where: {
+          uuid: tagFilter,
+          userId: req.user.id
+        }
+      });
+
+      if (userTags.length > 0) {
+        // Buscar mídias que têm TODAS as tags (interseção)
+        const tagIds = userTags.map(t => t.id);
+        
+        // Para cada tag, buscar mídias associadas
+        const mediaTagsPromises = tagIds.map(tagId => 
+          MediaTag.findAll({ where: { tagId } })
+        );
+        
+        const mediaTagsResults = await Promise.all(mediaTagsPromises);
+        
+        // Interseção: mídias que aparecem em TODAS as buscas
+        const mediaSets = mediaTagsResults.map(
+          results => new Set(results.map(mt => mt.mediaId))
+        );
+        
+        let intersection = mediaSets[0] || new Set();
+        for (let i = 1; i < mediaSets.length; i++) {
+          intersection = new Set([...intersection].filter(x => mediaSets[i].has(x)));
+        }
+        
+        mediaIds = [...intersection];
+        
+        if (mediaIds.length === 0) {
+          // Nenhuma mídia com todas as tags
+          return res.json({
+            stats: { total: 0, filtered: 0, images: 0, videos: 0, audios: 0 },
+            medias: [],
+            pagination: {
+              page: pageNum, limit: limitNum, offset: 0, total: 0, 
+              pages: 0, hasNext: false, hasPrev: false
+            }
+          });
+        }
+        
+        where.id = { [Op.in]: mediaIds };
+      }
     }
 
     // Contar total ANTES de aplicar paginação
     const total = await Media.count({ where });
 
+    // Buscar mídias com tags
     const medias = await Media.findAll({
       where,
       order: [[sortField, sortDirection]],
-      attributes: { exclude: ['userId'] }, // Não retornar userId no JSON
+      attributes: { exclude: ['userId'] },
       limit: limitNum,
       offset: offset
     });
+
+    // Buscar tags para cada mídia
+    const mediasWithTags = await Promise.all(
+      medias.map(async (media) => {
+        const mediaTags = await MediaTag.findAll({
+          where: { mediaId: media.id }
+        });
+        
+        const tagIds = mediaTags.map(mt => mt.tagId);
+        
+        const tagsForMedia = tagIds.length > 0 
+          ? await Tag.findAll({ where: { id: tagIds }, order: [['name', 'ASC']] })
+          : [];
+        
+        return {
+          ...media.toJSON(),
+          tags: tagsForMedia.map(t => t.toJSON())
+        };
+      })
+    );
 
     const totalPages = Math.ceil(total / limitNum);
 
     // Estatísticas
     const stats = {
-      total: medias.length,  // Itens na página atual
-      filtered: total,       // Total matching filters
+      total: medias.length,
+      filtered: total,
       images: await Media.countByType(req.user.id, 'image'),
       videos: await Media.countByType(req.user.id, 'video'),
       audios: await Media.countByType(req.user.id, 'audio')
@@ -145,7 +277,7 @@ async function listUserMedia(req, res) {
 
     res.json({
       stats,
-      medias,
+      medias: mediasWithTags,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -182,8 +314,22 @@ async function getMediaByUuid(req, res) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
+    // Buscar tags da mídia
+    const mediaTags = await MediaTag.findAll({
+      where: { mediaId: media.id }
+    });
+    
+    const tagIds = mediaTags.map(mt => mt.tagId);
+    
+    const tags = tagIds.length > 0 
+      ? await Tag.findAll({ where: { id: tagIds }, order: [['name', 'ASC']] })
+      : [];
+
     res.json({
-      media: media.toJSON()
+      media: {
+        ...media.toJSON(),
+        tags: tags.map(t => t.toJSON())
+      }
     });
 
   } catch (error) {
@@ -243,6 +389,9 @@ async function deleteMedia(req, res) {
         }
       }
 
+      // Deletar associações com tags
+      await MediaTag.destroy({ where: { mediaId: media.id } });
+
       // Deletar do banco
       await media.destroy();
 
@@ -270,11 +419,11 @@ async function deleteMedia(req, res) {
   }
 }
 
-// PUT /media/:uuid - Atualizar title e description
+// PUT /media/:uuid - Atualizar title, description e tags
 async function updateMedia(req, res) {
   try {
     const { uuid } = req.params;
-    const { title, description } = req.body;
+    const { title, description, tagUuids } = req.body;
 
     const media = await Media.findByUuid(uuid);
 
@@ -291,15 +440,53 @@ async function updateMedia(req, res) {
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
 
-    if (Object.keys(updates).length === 0) {
-      return res.status(400).json({ error: 'Nenhuma alteração fornecida' });
+    // Atualizar campos básicos
+    if (Object.keys(updates).length > 0) {
+      await media.update(updates);
     }
 
-    await media.update(updates);
+    // Atualizar tags se fornecidas
+    let updatedTags = [];
+    if (tagUuids !== undefined) {
+      // Remover todas as tags atuais
+      await MediaTag.destroy({ where: { mediaId: media.id } });
+
+      if (Array.isArray(tagUuids) && tagUuids.length > 0) {
+        // Buscar tags válidas do usuário
+        const tags = await Tag.findAll({
+          where: {
+            uuid: tagUuids,
+            userId: req.user.id
+          }
+        });
+
+        // Criar novas associações
+        const associations = tags.map(tag => ({
+          mediaId: media.id,
+          tagId: tag.id
+        }));
+
+        if (associations.length > 0) {
+          await MediaTag.bulkCreate(associations, { ignoreDuplicates: true });
+          updatedTags = tags.map(t => t.toJSON());
+        }
+      }
+    } else {
+      // Buscar tags atuais se não foram fornecidas
+      const mediaTags = await MediaTag.findAll({ where: { mediaId: media.id } });
+      const tagIds = mediaTags.map(mt => mt.tagId);
+      if (tagIds.length > 0) {
+        const currentTags = await Tag.findAll({ where: { id: tagIds } });
+        updatedTags = currentTags.map(t => t.toJSON());
+      }
+    }
 
     res.json({
       message: 'Mídia atualizada com sucesso',
-      media: media.toJSON()
+      media: {
+        ...media.toJSON(),
+        tags: updatedTags
+      }
     });
 
   } catch (error) {
@@ -311,10 +498,51 @@ async function updateMedia(req, res) {
   }
 }
 
+// GET /media/:uuid/tags - Listar tags de uma mídia específica
+async function getMediaTags(req, res) {
+  try {
+    const { uuid } = req.params;
+
+    const media = await Media.findByUuid(uuid);
+    if (!media) {
+      return res.status(404).json({ error: 'Mídia não encontrada' });
+    }
+
+    // Verificar propriedade
+    if (media.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Acesso negado' });
+    }
+
+    // Buscar tags associadas
+    const mediaTags = await MediaTag.findAll({
+      where: { mediaId: media.id }
+    });
+
+    const tagIds = mediaTags.map(mt => mt.tagId);
+
+    const tags = tagIds.length > 0
+      ? await Tag.findAll({ where: { id: tagIds }, order: [['name', 'ASC']] })
+      : [];
+
+    res.json({
+      mediaUuid: media.uuid,
+      tags: tags.map(t => t.toJSON())
+    });
+
+  } catch (error) {
+    console.error('Erro ao listar tags da mídia:', error);
+    res.status(500).json({
+      error: 'Erro ao listar tags',
+      details: error.message
+    });
+  }
+}
+
 module.exports = {
   uploadMedia,
   listUserMedia,
   getMediaByUuid,
   deleteMedia,
-  updateMedia
+  updateMedia,
+  getMediaTags
 };
