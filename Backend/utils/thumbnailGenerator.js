@@ -1,17 +1,53 @@
 const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
-const ffmpegPath = require('ffmpeg-static');
-const ffprobePath = require('ffprobe-static').path;
 const { Upload } = require('@aws-sdk/lib-storage');
 const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { execSync } = require('child_process');
+
+// Função para verificar se um comando existe no sistema
+function commandExists(cmd) {
+  try {
+    execSync(`which ${cmd}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // Configurar caminhos do FFmpeg e FFprobe
-ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobePath);
+// Prioridade: binários do sistema > binários estáticos (npm)
+function configureFfmpeg() {
+  // Tentar usar binários do sistema primeiro (mais estáveis)
+  const systemFfmpeg = commandExists('ffmpeg');
+  const systemFfprobe = commandExists('ffprobe');
+
+  if (systemFfmpeg && systemFfprobe) {
+    console.log('✓ Usando FFmpeg/FFprobe do sistema');
+    // fluent-ffmpeg usa PATH automaticamente quando não configurado
+    return;
+  }
+
+  // Fallback: usar binários estáticos do npm
+  console.log('⚠ FFmpeg/FFprobe não encontrados no sistema, usando binários estáticos...');
+  try {
+    const ffmpegStatic = require('ffmpeg-static');
+    const ffprobeStatic = require('ffprobe-static');
+    
+    if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
+    if (ffprobeStatic && ffprobeStatic.path) ffmpeg.setFfprobePath(ffprobeStatic.path);
+    
+    console.log('✓ Binários estáticos configurados');
+  } catch (err) {
+    console.error('✗ Erro ao configurar binários estáticos:', err.message);
+  }
+}
+
+// Inicializar configuração
+configureFfmpeg();
 
 // Constantes
 const THUMBNAIL_SIZE = 150;
