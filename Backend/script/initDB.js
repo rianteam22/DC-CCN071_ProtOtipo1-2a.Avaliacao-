@@ -1,5 +1,6 @@
 const sequelize = require('../config/database');
 const User = require('../models/User');
+const Media = require('../models/Media');
 
 async function initDatabase() {
   try {
@@ -8,6 +9,15 @@ async function initDatabase() {
     // Testar conexão
     await sequelize.authenticate();
     console.log('Conexão estabelecida com sucesso!');
+
+    // Inicializar associações
+    const models = { User, Media };
+    Object.keys(models).forEach(modelName => {
+      if (models[modelName].associate) {
+        models[modelName].associate(models);
+      }
+    });
+    console.log('Associações inicializadas com sucesso!');
 
     // Sincronizar modelos
     console.log('Sincronizando modelos...');
@@ -22,6 +32,10 @@ async function initDatabase() {
     // Comandos básicos de teste
     const userCount = await User.count();
     console.log(`Total de usuários no banco: ${userCount}`);
+
+    const mediaCount = await Media.count();
+    console.log(`Total de mídias no banco: ${mediaCount}`);
+
     console.log('Usuários existentes:');
     const users = await User.findAll();
     users.forEach(user => {

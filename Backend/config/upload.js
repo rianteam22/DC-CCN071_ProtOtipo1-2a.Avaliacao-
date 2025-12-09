@@ -1,20 +1,13 @@
 const multer = require('multer');
 const multerS3 = require('multer-s3');
-const { S3Client } = require('@aws-sdk/client-s3');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 require('dotenv').config();
 
-// Configurar cliente S3
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-  }
-});
+// Importar cliente S3 compartilhado
+const s3Client = require('./s3');
 
 // Configurar storage do Multer com S3
 const storage = multerS3({

@@ -22,8 +22,10 @@
 const express = require('express');
 const app = express();
 const sequelize = require('./config/database');
-const User = require('./models/User')
+const User = require('./models/User');
+const Media = require('./models/Media');
 const upload = require('./config/upload');
+const mediaRoutes = require('./routes/mediaRoutes');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -59,6 +61,9 @@ function authenticateToken(req, res, next) {
 
   });
 }
+
+// Media routes (todas requerem autenticação)
+app.use('/media', authenticateToken, mediaRoutes);
 
 //GETs
 // Rota para ver a foto (retorna URL do S3)
@@ -319,6 +324,14 @@ async function initDatabase() {
   try {
     await sequelize.authenticate();
     console.log('✅ Conexão com banco de dados PostgreSQL estabelecida');
+
+    // Inicializar associações entre modelos
+    const models = { User, Media };
+    Object.keys(models).forEach(modelName => {
+      if (models[modelName].associate) {
+        models[modelName].associate(models);
+      }
+    });
 
     // ⚠️ NÃO usar sync em produção! Use migrations ou o script initDB.js
     // await sequelize.sync({ alter: true }); // REMOVIDO para evitar erros

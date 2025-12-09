@@ -184,5 +184,13 @@ User.findByUuid = async function(uuid) {
   return await this.findOne({ where: { uuid } });
 };
 
+// ASSOCIAÇÕES
+User.associate = function(models) {
+  User.hasMany(models.Media, {
+    foreignKey: 'userId',
+    as: 'media',
+    onDelete: 'CASCADE'
+  });
+};
 
 module.exports = User;
