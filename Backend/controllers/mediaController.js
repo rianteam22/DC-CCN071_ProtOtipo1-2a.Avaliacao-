@@ -3,6 +3,7 @@ const User = require('../models/User');
 const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
 const { Op } = require('sequelize');
+const { generateThumbnail } = require('../utils/thumbnailGenerator');
 
 // POST /media/upload - Upload de nova mídia
 async function uploadMedia(req, res) {
@@ -20,11 +21,38 @@ async function uploadMedia(req, res) {
     // Dados do arquivo (fornecidos pelo multer-s3 e middleware)
     const { title, description } = req.body;
 
+    // Gerar thumbnail
+    let thumbnailData = { thumbnail_url: null, thumbnail_s3_key: null };
+
+    try {
+      console.log(`Gerando thumbnail para ${req.mediaType}...`);
+
+      thumbnailData = await generateThumbnail({
+        mediaType: req.mediaType,
+        fileUrl: req.file.location,  // URL S3 do arquivo original
+        userUuid: usuario.uuid,
+        filename: req.originalFilename,
+        metadata: {
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        }
+      });
+
+      if (thumbnailData.thumbnail_url) {
+        console.log(`✓ Thumbnail gerada: ${thumbnailData.thumbnail_url}`);
+      }
+    } catch (thumbnailError) {
+      // Não bloquear upload se thumbnail falhar
+      console.error('⚠ Erro ao gerar thumbnail (não crítico):', thumbnailError.message);
+    }
+
     // Criar registro no banco
     const media = await Media.create({
       type: req.mediaType,
       url: req.file.location,
       s3_key: req.file.key,
+      thumbnail_url: thumbnailData.thumbnail_url,
+      thumbnail_s3_key: thumbnailData.thumbnail_s3_key,
       userId: usuario.id,
       title: title || null,
       description: description || null,
@@ -198,6 +226,21 @@ async function deleteMedia(req, res) {
       } catch (s3Error) {
         console.error('Erro ao deletar do S3:', s3Error);
         // Continuar mesmo se falhar no S3
+      }
+
+      // Deletar thumbnail do S3 (se existir)
+      if (media.thumbnail_s3_key) {
+        try {
+          const deleteThumbnailParams = {
+            Bucket: process.env.AWS_BUCKET_NAME,
+            Key: media.thumbnail_s3_key
+          };
+          await s3Client.send(new DeleteObjectCommand(deleteThumbnailParams));
+          console.log(`✓ Thumbnail deletada do S3: ${media.thumbnail_s3_key}`);
+        } catch (s3Error) {
+          console.error('⚠ Erro ao deletar thumbnail do S3:', s3Error);
+          // Continuar mesmo se falhar no S3
+        }
       }
 
       // Deletar do banco

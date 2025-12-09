@@ -267,7 +267,7 @@ function renderMediaTable() {
   if (medias.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="5" class="empty-cell">
+        <td colspan="6" class="empty-cell">
           <div class="empty-state">
             <div class="empty-state-icon">📁</div>
             <div class="empty-state-text">Nenhuma mídia encontrada</div>
@@ -291,23 +291,34 @@ function renderMediaTable() {
     const formattedDate = formatDate(media.created_at);
     const sizeMB = (media.size / (1024 * 1024)).toFixed(2);
 
-    // Preview com link para mídia (apenas para imagens)
-    const preview = media.type === 'image'
-      ? `<a href="${media.url}" target="_blank" class="media-preview-link">
-           <img src="${media.url}" alt="${media.filename}" class="media-thumb" />
-         </a>`
-      : '';
+    // Gerar célula de preview
+    let previewCell = '';
+
+    if (media.thumbnail_url) {
+      // Imagens e vídeos com thumbnail
+      previewCell = `
+        <a href="${media.url}" target="_blank" class="media-preview-link" title="Ver original">
+          <img src="${media.thumbnail_url}"
+               alt="${media.filename}"
+               class="media-thumb"
+               loading="lazy" />
+        </a>`;
+    } else if (media.type === 'audio') {
+      // Áudios: ícone
+      previewCell = '<span class="audio-icon">🎵</span>';
+    } else {
+      // Fallback para registros antigos sem thumbnail
+      previewCell = '<span class="no-thumb">—</span>';
+    }
 
     const title = media.title || media.filename;
-    const titleWithPreview = preview
-      ? `${preview}<span class="media-name">${title}</span>`
-      : `<span class="media-name">${title}</span>`;
 
     return `
       <tr class="media-row" data-uuid="${media.uuid}">
         <td class="type-cell">${typeIcon}</td>
+        <td class="preview-cell">${previewCell}</td>
         <td class="name-cell">
-          ${titleWithPreview}
+          <span class="media-name">${title}</span>
           ${media.description ? `<div class="media-desc-small">${media.description}</div>` : ''}
         </td>
         <td class="size-cell">${sizeMB} MB</td>

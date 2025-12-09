@@ -650,13 +650,8 @@ textarea.form-input {
 }
 
 .name-cell {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
-}
-
-.media-preview-link {
-  flex-shrink: 0;
+  word-break: break-word;
+  max-width: 300px;
 }
 
 .media-thumb {
@@ -665,6 +660,49 @@ textarea.form-input {
   object-fit: cover;
   border-radius: var(--radius-base);
   border: 1px solid var(--color-border);
+}
+
+/* ========================================
+   COLUNA DE PREVIEW
+   ======================================== */
+
+.preview-cell {
+  text-align: center;
+  width: 80px;
+  padding: var(--space-8) var(--space-12);
+  vertical-align: middle;
+}
+
+.preview-cell .media-preview-link {
+  display: inline-block;
+}
+
+.preview-cell .media-thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border);
+  transition: transform var(--duration-normal), box-shadow var(--duration-normal);
+  cursor: pointer;
+}
+
+.preview-cell .media-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.preview-cell .audio-icon {
+  font-size: 32px;
+  opacity: 0.3;
+  display: block;
+  line-height: 1;
+}
+
+.preview-cell .no-thumb {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+  opacity: 0.4;
 }
 
 .media-name {
@@ -816,6 +854,21 @@ textarea.form-input {
   .media-thumb {
     width: 32px;
     height: 32px;
+  }
+
+  /* Ajustes responsivos para coluna Preview */
+  .preview-cell {
+    width: 60px;
+    padding: var(--space-4) var(--space-8);
+  }
+
+  .preview-cell .media-thumb {
+    width: 48px;
+    height: 48px;
+  }
+
+  .preview-cell .audio-icon {
+    font-size: 24px;
   }
 
   .media-desc-small {

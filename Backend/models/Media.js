@@ -35,6 +35,18 @@ const Media = sequelize.define('Media', {
     comment: 'Chave S3 para deleção (e.g., uploads/{uuid}/videos/{timestamp}_{filename})'
   },
 
+  thumbnail_url: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'URL pública da thumbnail no S3 (150x150px WebP)'
+  },
+
+  thumbnail_s3_key: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Chave S3 da thumbnail para deleção'
+  },
+
   userId: {
     type: DataTypes.INTEGER,
     allowNull: false,
