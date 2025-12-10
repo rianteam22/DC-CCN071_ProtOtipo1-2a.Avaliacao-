@@ -5,9 +5,27 @@ const MediaTag = require('../models/MediaTag');
 const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
 const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 const { generateThumbnail } = require('../utils/thumbnailGenerator');
 const { extractMetadata } = require('../utils/metadataExtractor');
 const { processVideoQualitiesAsync } = require('../utils/videoTranscoder');
+
+// Helper para criar busca case-insensitive compativel com SQLite e PostgreSQL
+function createCaseInsensitiveSearch(field, value) {
+  const dialect = sequelize.getDialect();
+  
+  if (dialect === 'postgres') {
+    // PostgreSQL suporta ILIKE nativamente
+    return { [field]: { [Op.iLike]: `%${value}%` } };
+  } else {
+    // SQLite usa LIKE que ja e case-insensitive por padrao para ASCII
+    // Mas para garantir usamos LOWER()
+    return sequelize.where(
+      sequelize.fn('LOWER', sequelize.col(field)),
+      { [Op.like]: `%${value.toLowerCase()}%` }
+    );
+  }
+}
 
 // POST /media/upload - Upload de nova midia
 async function uploadMedia(req, res) {
@@ -218,9 +236,9 @@ async function listUserMedia(req, res) {
 
     if (search) {
       where[Op.or] = [
-        { filename: { [Op.iLike]: `%${search}%` } },
-        { title: { [Op.iLike]: `%${search}%` } },
-        { description: { [Op.iLike]: `%${search}%` } }
+        createCaseInsensitiveSearch('filename', search),
+        createCaseInsensitiveSearch('title', search),
+        createCaseInsensitiveSearch('description', search)
       ];
     }
 
