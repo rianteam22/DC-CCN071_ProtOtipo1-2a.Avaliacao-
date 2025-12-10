@@ -147,6 +147,578 @@ function closeEditMediaTagsModal() {
 }
 
 // ============================================
+// MODAL DE DETALHES / METADADOS
+// ============================================
+
+function openMediaDetailsModal(mediaUuid) {
+  // Buscar a midia no estado da aplicacao
+  const media = appState.mediaGallery.find(m => m.uuid === mediaUuid);
+  
+  if (!media) {
+    console.error('Midia nao encontrada:', mediaUuid);
+    return;
+  }
+  
+  // Preencher o modal com os dados
+  renderMediaDetails(media);
+  
+  // Abrir o modal
+  document.getElementById('mediaDetailsModal').style.display = 'flex';
+}
+
+function closeMediaDetailsModal() {
+  document.getElementById('mediaDetailsModal').style.display = 'none';
+}
+
+function renderMediaDetails(media) {
+  const title = media.title || media.filename;
+  document.getElementById('mediaDetailsTitle').textContent = title;
+  
+  // Renderizar preview
+  renderMediaPreview(media);
+  
+  // Renderizar informacoes basicas
+  renderBasicInfo(media);
+  
+  // Renderizar metadados tecnicos
+  renderMetadataInfo(media);
+  
+  // Configurar link de download
+  document.getElementById('mediaDownloadLink').href = media.url;
+}
+
+function renderMediaPreview(media) {
+  const container = document.getElementById('mediaDetailsPreview');
+  
+  switch (media.type) {
+    case 'image':
+      container.innerHTML = `
+        <img src="${media.url}" alt="${media.filename}" class="media-details-preview" />
+      `;
+      break;
+      
+    case 'video':
+      container.innerHTML = `
+        <video controls class="media-details-preview video-preview">
+          <source src="${media.url}" type="${media.mimetype}">
+          Seu navegador nao suporta o elemento de video
+        </video>
+      `;
+      break;
+      
+    case 'audio':
+      container.innerHTML = `
+        <div class="audio-large-icon">🎵</div>
+        <audio controls class="media-details-preview audio-preview">
+          <source src="${media.url}" type="${media.mimetype}">
+          Seu navegador nao suporta o elemento de audio
+        </audio>
+      `;
+      break;
+      
+    default:
+      container.innerHTML = '<p>Preview nao disponivel</p>';
+  }
+}
+
+function renderBasicInfo(media) {
+  const container = document.getElementById('mediaBasicInfo');
+  const sizeMB = (media.size / (1024 * 1024)).toFixed(2);
+  const typeLabels = { image: 'Imagem', video: 'Video', audio: 'Audio' };
+  
+  let html = `
+    <div class="metadata-item">
+      <span class="metadata-label">Nome do arquivo</span>
+      <span class="metadata-value">${media.filename}</span>
+    </div>
+    <div class="metadata-item">
+      <span class="metadata-label">Tipo</span>
+      <span class="metadata-value">${typeLabels[media.type] || media.type}</span>
+    </div>
+    <div class="metadata-item">
+      <span class="metadata-label">Tamanho</span>
+      <span class="metadata-value">${sizeMB} MB (${media.size.toLocaleString('pt-BR')} bytes)</span>
+    </div>
+    <div class="metadata-item">
+      <span class="metadata-label">Tipo MIME</span>
+      <span class="metadata-value">${media.mimetype}</span>
+    </div>
+    <div class="metadata-item">
+      <span class="metadata-label">Data de upload</span>
+      <span class="metadata-value">${formatDate(media.created_at)}</span>
+    </div>
+  `;
+  
+  if (media.title) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Titulo</span>
+        <span class="metadata-value">${media.title}</span>
+      </div>
+    `;
+  }
+  
+  if (media.description) {
+    html += `
+      <div class="metadata-item metadata-full-width">
+        <span class="metadata-label">Descricao</span>
+        <span class="metadata-value">${media.description}</span>
+      </div>
+    `;
+  }
+  
+  // Tags
+  if (media.tags && media.tags.length > 0) {
+    const tagsHtml = media.tags.map(tag => 
+      `<span class="tag-badge-small" style="background-color: ${tag.color}20; color: ${tag.color}; border-color: ${tag.color};">${tag.name}</span>`
+    ).join(' ');
+    
+    html += `
+      <div class="metadata-item metadata-full-width">
+        <span class="metadata-label">Tags</span>
+        <span class="metadata-value">${tagsHtml}</span>
+      </div>
+    `;
+  }
+  
+  container.innerHTML = html;
+}
+
+function renderMetadataInfo(media) {
+  const container = document.getElementById('mediaMetadataInfo');
+  const metadataSection = document.getElementById('mediaMetadataSection');
+  const exifSection = document.getElementById('mediaExifSection');
+  const exifContainer = document.getElementById('mediaExifInfo');
+  
+  // Esconder secao EXIF por padrao
+  exifSection.style.display = 'none';
+  
+  if (!media.metadata) {
+    metadataSection.style.display = 'none';
+    return;
+  }
+  
+  metadataSection.style.display = 'block';
+  const metadata = media.metadata;
+  let html = '';
+  
+  // Metadados especificos por tipo
+  switch (media.type) {
+    case 'image':
+      html = renderImageMetadata(metadata);
+      
+      // Renderizar EXIF se disponivel
+      if (metadata.exif && Object.keys(metadata.exif).length > 0) {
+        exifSection.style.display = 'block';
+        exifContainer.innerHTML = renderExifData(metadata.exif);
+      }
+      break;
+      
+    case 'video':
+      html = renderVideoMetadata(metadata);
+      break;
+      
+    case 'audio':
+      html = renderAudioMetadata(metadata);
+      break;
+  }
+  
+  container.innerHTML = html || '<p style="color: var(--color-text-secondary);">Nenhum metadado disponivel</p>';
+}
+
+function renderImageMetadata(metadata) {
+  let html = '';
+  
+  // Dimensoes
+  if (metadata.width && metadata.height) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Dimensoes</span>
+        <span class="metadata-value highlight">${metadata.width} x ${metadata.height} px</span>
+      </div>
+    `;
+  }
+  
+  // Formato
+  if (metadata.format) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Formato</span>
+        <span class="metadata-value">${metadata.format.toUpperCase()}</span>
+      </div>
+    `;
+  }
+  
+  // Espaco de cor
+  if (metadata.space) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Espaco de cor</span>
+        <span class="metadata-value">${metadata.space}</span>
+      </div>
+    `;
+  }
+  
+  // Canais
+  if (metadata.channels) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Canais</span>
+        <span class="metadata-value">${metadata.channels}</span>
+      </div>
+    `;
+  }
+  
+  // Profundidade de cor
+  if (metadata.depth) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Profundidade de cor</span>
+        <span class="metadata-value">${metadata.depth} bits</span>
+      </div>
+    `;
+  }
+  
+  // DPI/Resolucao
+  if (metadata.density) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Resolucao DPI</span>
+        <span class="metadata-value">${metadata.density} DPI</span>
+      </div>
+    `;
+  }
+  
+  // Canal alpha
+  if (metadata.hasAlpha !== undefined) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Canal Alpha</span>
+        <span class="metadata-value">${metadata.hasAlpha ? 'Sim' : 'Nao'}</span>
+      </div>
+    `;
+  }
+  
+  // Orientacao
+  if (metadata.orientation) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Orientacao</span>
+        <span class="metadata-value">${getOrientationLabel(metadata.orientation)}</span>
+      </div>
+    `;
+  }
+  
+  return html;
+}
+
+function renderExifData(exif) {
+  let html = '';
+  
+  // Dados da camera
+  if (exif.make) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Fabricante</span>
+        <span class="metadata-value">${exif.make}</span>
+      </div>
+    `;
+  }
+  
+  if (exif.model) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Modelo da camera</span>
+        <span class="metadata-value">${exif.model}</span>
+      </div>
+    `;
+  }
+  
+  if (exif.software) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Software</span>
+        <span class="metadata-value">${exif.software}</span>
+      </div>
+    `;
+  }
+  
+  // Data e hora
+  if (exif.dateTimeOriginal || exif.dateTime) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Data da captura</span>
+        <span class="metadata-value">${exif.dateTimeOriginal || exif.dateTime}</span>
+      </div>
+    `;
+  }
+  
+  // Configuracoes de captura
+  if (exif.exposureTime) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Tempo de exposicao</span>
+        <span class="metadata-value">${exif.exposureTime}s</span>
+      </div>
+    `;
+  }
+  
+  if (exif.fNumber) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Abertura</span>
+        <span class="metadata-value">f/${exif.fNumber}</span>
+      </div>
+    `;
+  }
+  
+  if (exif.iso) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">ISO</span>
+        <span class="metadata-value">${exif.iso}</span>
+      </div>
+    `;
+  }
+  
+  if (exif.focalLength) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Distancia focal</span>
+        <span class="metadata-value">${exif.focalLength}mm</span>
+      </div>
+    `;
+  }
+  
+  // GPS
+  if (exif.gps) {
+    html += `
+      <div class="metadata-item metadata-full-width">
+        <span class="metadata-label">Localizacao GPS</span>
+        <span class="metadata-value">${exif.gps.latitude}, ${exif.gps.longitude}</span>
+      </div>
+    `;
+  }
+  
+  return html;
+}
+
+function renderVideoMetadata(metadata) {
+  let html = '';
+  
+  // Dimensoes
+  if (metadata.width && metadata.height) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Resolucao</span>
+        <span class="metadata-value highlight">${metadata.width} x ${metadata.height} px</span>
+      </div>
+    `;
+  }
+  
+  // Duracao
+  if (metadata.duration) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Duracao</span>
+        <span class="metadata-value">${formatDuration(metadata.duration)}</span>
+      </div>
+    `;
+  }
+  
+  // Frame rate
+  if (metadata.frameRate) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Taxa de quadros</span>
+        <span class="metadata-value">${metadata.frameRate} fps</span>
+      </div>
+    `;
+  }
+  
+  // Bitrate
+  if (metadata.bitrate) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Bitrate</span>
+        <span class="metadata-value">${formatBitrate(metadata.bitrate)}</span>
+      </div>
+    `;
+  }
+  
+  // Codec de video
+  if (metadata.videoCodec) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Codec de video</span>
+        <span class="metadata-value">${metadata.videoCodec.toUpperCase()}</span>
+      </div>
+    `;
+  }
+  
+  // Codec de audio
+  if (metadata.audioCodec) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Codec de audio</span>
+        <span class="metadata-value">${metadata.audioCodec.toUpperCase()}</span>
+      </div>
+    `;
+  }
+  
+  // Canais de audio
+  if (metadata.audioChannels) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Canais de audio</span>
+        <span class="metadata-value">${metadata.audioChannels === 2 ? 'Stereo' : metadata.audioChannels === 1 ? 'Mono' : metadata.audioChannels}</span>
+      </div>
+    `;
+  }
+  
+  return html;
+}
+
+function renderAudioMetadata(metadata) {
+  let html = '';
+  
+  // Duracao
+  if (metadata.duration) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Duracao</span>
+        <span class="metadata-value highlight">${formatDuration(metadata.duration)}</span>
+      </div>
+    `;
+  }
+  
+  // Bitrate
+  if (metadata.bitrate) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Bitrate</span>
+        <span class="metadata-value">${formatBitrate(metadata.bitrate)}</span>
+      </div>
+    `;
+  }
+  
+  // Codec
+  if (metadata.codec) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Codec</span>
+        <span class="metadata-value">${metadata.codec.toUpperCase()}</span>
+      </div>
+    `;
+  }
+  
+  // Sample rate
+  if (metadata.sampleRate) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Taxa de amostragem</span>
+        <span class="metadata-value">${(metadata.sampleRate / 1000).toFixed(1)} kHz</span>
+      </div>
+    `;
+  }
+  
+  // Canais
+  if (metadata.channels) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Canais</span>
+        <span class="metadata-value">${metadata.channels === 2 ? 'Stereo' : metadata.channels === 1 ? 'Mono' : metadata.channels}</span>
+      </div>
+    `;
+  }
+  
+  // Tags de audio
+  if (metadata.title) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Titulo da faixa</span>
+        <span class="metadata-value">${metadata.title}</span>
+      </div>
+    `;
+  }
+  
+  if (metadata.artist) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Artista</span>
+        <span class="metadata-value">${metadata.artist}</span>
+      </div>
+    `;
+  }
+  
+  if (metadata.album) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Album</span>
+        <span class="metadata-value">${metadata.album}</span>
+      </div>
+    `;
+  }
+  
+  if (metadata.genre) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Genero</span>
+        <span class="metadata-value">${metadata.genre}</span>
+      </div>
+    `;
+  }
+  
+  if (metadata.year) {
+    html += `
+      <div class="metadata-item">
+        <span class="metadata-label">Ano</span>
+        <span class="metadata-value">${metadata.year}</span>
+      </div>
+    `;
+  }
+  
+  return html;
+}
+
+// Funcoes auxiliares para formatacao
+function formatDuration(seconds) {
+  if (!seconds) return '--:--';
+  
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatBitrate(bitrate) {
+  if (!bitrate) return '--';
+  
+  if (bitrate >= 1000000) {
+    return `${(bitrate / 1000000).toFixed(1)} Mbps`;
+  }
+  return `${Math.round(bitrate / 1000)} kbps`;
+}
+
+function getOrientationLabel(orientation) {
+  const labels = {
+    1: 'Normal',
+    2: 'Espelhado horizontal',
+    3: 'Rotacionado 180',
+    4: 'Espelhado vertical',
+    5: 'Rotacionado 90 CCW espelhado',
+    6: 'Rotacionado 90 CW',
+    7: 'Rotacionado 90 CW espelhado',
+    8: 'Rotacionado 90 CCW'
+  };
+  return labels[orientation] || `Orientacao ${orientation}`;
+}
+
+// ============================================
 // TAGS - API
 // ============================================
 

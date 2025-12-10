@@ -14,37 +14,37 @@ const Media = sequelize.define('Media', {
     defaultValue: () => uuidv4(),
     allowNull: false,
     unique: true,
-    comment: 'Identificador único da mídia'
+    comment: 'Identificador Ãºnico da mÃ­dia'
   },
 
   type: {
     type: DataTypes.ENUM('image', 'video', 'audio'),
     allowNull: false,
-    comment: 'Tipo de mídia'
+    comment: 'Tipo de mÃ­dia'
   },
 
   url: {
     type: DataTypes.STRING,
     allowNull: false,
-    comment: 'URL pública do S3'
+    comment: 'URL pÃºblica do S3'
   },
 
   s3_key: {
     type: DataTypes.STRING,
     allowNull: false,
-    comment: 'Chave S3 para deleção (e.g., uploads/{uuid}/videos/{timestamp}_{filename})'
+    comment: 'Chave S3 para deleÃ§Ã£o (e.g., uploads/{uuid}/videos/{timestamp}_{filename})'
   },
 
   thumbnail_url: {
     type: DataTypes.STRING,
     allowNull: true,
-    comment: 'URL pública da thumbnail no S3 (150x150px WebP)'
+    comment: 'URL pÃºblica da thumbnail no S3 (150x150px WebP)'
   },
 
   thumbnail_s3_key: {
     type: DataTypes.STRING,
     allowNull: true,
-    comment: 'Chave S3 da thumbnail para deleção'
+    comment: 'Chave S3 da thumbnail para deleÃ§Ã£o'
   },
 
   userId: {
@@ -55,7 +55,7 @@ const Media = sequelize.define('Media', {
       key: 'id'
     },
     onDelete: 'CASCADE',
-    comment: 'ID do usuário proprietário'
+    comment: 'ID do usuÃ¡rio proprietÃ¡rio'
   },
 
   title: {
@@ -64,10 +64,10 @@ const Media = sequelize.define('Media', {
     validate: {
       len: {
         args: [0, 255],
-        msg: 'Título deve ter no máximo 255 caracteres'
+        msg: 'TÃ­tulo deve ter no mÃ¡ximo 255 caracteres'
       }
     },
-    comment: 'Título opcional da mídia'
+    comment: 'TÃ­tulo opcional da mÃ­dia'
   },
 
   description: {
@@ -76,10 +76,10 @@ const Media = sequelize.define('Media', {
     validate: {
       len: {
         args: [0, 1000],
-        msg: 'Descrição deve ter no máximo 1000 caracteres'
+        msg: 'DescriÃ§Ã£o deve ter no mÃ¡ximo 1000 caracteres'
       }
     },
-    comment: 'Descrição opcional da mídia'
+    comment: 'DescriÃ§Ã£o opcional da mÃ­dia'
   },
 
   filename: {
@@ -100,6 +100,13 @@ const Media = sequelize.define('Media', {
     comment: 'Tipo MIME do arquivo'
   },
 
+  metadata: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Metadados extraidos do arquivo - dimensoes EXIF duracao etc'
+  },
+
   active: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
@@ -111,14 +118,14 @@ const Media = sequelize.define('Media', {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW,
-    comment: 'Data de criação'
+    comment: 'Data de criaÃ§Ã£o'
   },
 
   updated_at: {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW,
-    comment: 'Data de última atualização'
+    comment: 'Data de Ãºltima atualizaÃ§Ã£o'
   }
 }, {
   tableName: 'media',
@@ -151,14 +158,14 @@ Media.beforeUpdate((media) => {
   media.updated_at = new Date();
 });
 
-// MÉTODOS ESTÁTICOS
+// MÃ‰TODOS ESTÃTICOS
 
 // Buscar por UUID
 Media.findByUuid = async function(uuid) {
   return await this.findOne({ where: { uuid } });
 };
 
-// Buscar mídias ativas do usuário
+// Buscar mÃ­dias ativas do usuÃ¡rio
 Media.findActiveByUserId = async function(userId, type = null) {
   const where = { userId, active: true };
   if (type) where.type = type;
@@ -169,14 +176,14 @@ Media.findActiveByUserId = async function(userId, type = null) {
   });
 };
 
-// Contar mídias por tipo
+// Contar mÃ­dias por tipo
 Media.countByType = async function(userId, type) {
   return await this.count({
     where: { userId, type, active: true }
   });
 };
 
-// MÉTODOS DE INSTÂNCIA
+// MÃ‰TODOS DE INSTÃ‚NCIA
 
 // Soft delete
 Media.prototype.softDelete = async function() {
@@ -188,14 +195,14 @@ Media.prototype.restore = async function() {
   return await this.update({ active: true });
 };
 
-// ASSOCIAÇÕES
+// ASSOCIAÃ‡Ã•ES
 Media.associate = function(models) {
   Media.belongsTo(models.User, {
     foreignKey: 'userId',
     as: 'user'
   });
 
-  // Associação com Tags (N:N)
+  // AssociaÃ§Ã£o com Tags (N:N)
   Media.belongsToMany(models.Tag, {
     through: 'MediaTags',
     foreignKey: 'mediaId',

@@ -6,8 +6,9 @@ const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
 const { Op } = require('sequelize');
 const { generateThumbnail } = require('../utils/thumbnailGenerator');
+const { extractMetadata } = require('../utils/metadataExtractor');
 
-// POST /media/upload - Upload de nova mídia
+// POST /media/upload - Upload de nova mÃ­dia
 async function uploadMedia(req, res) {
   try {
     if (!req.file) {
@@ -17,7 +18,7 @@ async function uploadMedia(req, res) {
     const usuario = await User.findByPk(req.user.id);
 
     if (!usuario) {
-      return res.status(404).json({ error: 'Usuário não encontrado' });
+      return res.status(404).json({ error: 'UsuÃ¡rio nÃ£o encontrado' });
     }
 
     // Dados do arquivo (fornecidos pelo multer-s3 e middleware)
@@ -41,11 +42,25 @@ async function uploadMedia(req, res) {
       });
 
       if (thumbnailData.thumbnail_url) {
-        console.log(`✓ Thumbnail gerada: ${thumbnailData.thumbnail_url}`);
+        console.log(`âœ“ Thumbnail gerada: ${thumbnailData.thumbnail_url}`);
       }
     } catch (thumbnailError) {
-      // Não bloquear upload se thumbnail falhar
-      console.error('⚠ Erro ao gerar thumbnail (não crítico):', thumbnailError.message);
+      // NÃ£o bloquear upload se thumbnail falhar
+      console.error('âš  Erro ao gerar thumbnail (nÃ£o crÃ­tico):', thumbnailError.message);
+    }
+
+    // Extrair metadados do arquivo
+    let mediaMetadata = null;
+    try {
+      console.log(`Extraindo metadados para ${req.mediaType}...`);
+      mediaMetadata = await extractMetadata(req.mediaType, req.file.location);
+      
+      if (mediaMetadata) {
+        console.log(`Metadados extraidos com sucesso`);
+      }
+    } catch (metadataError) {
+      // Nao bloquear upload se extracao de metadados falhar
+      console.error('Erro ao extrair metadados (nao critico):', metadataError.message);
     }
 
     // Criar registro no banco
@@ -60,7 +75,8 @@ async function uploadMedia(req, res) {
       description: description || null,
       filename: req.originalFilename,
       size: req.file.size,
-      mimetype: req.file.mimetype
+      mimetype: req.file.mimetype,
+      metadata: mediaMetadata
     });
 
     // Processar tags se fornecidas
@@ -69,7 +85,7 @@ async function uploadMedia(req, res) {
       try {
         const tagIds = JSON.parse(tagUuids);
         if (Array.isArray(tagIds) && tagIds.length > 0) {
-          // Buscar tags válidas do usuário
+          // Buscar tags vÃ¡lidas do usuÃ¡rio
           const tags = await Tag.findAll({
             where: {
               uuid: tagIds,
@@ -77,7 +93,7 @@ async function uploadMedia(req, res) {
             }
           });
 
-          // Criar associações
+          // Criar associaÃ§Ãµes
           const associations = tags.map(tag => ({
             mediaId: media.id,
             tagId: tag.id
@@ -90,12 +106,12 @@ async function uploadMedia(req, res) {
         }
       } catch (tagError) {
         console.error('Erro ao processar tags:', tagError);
-        // Não bloquear upload se tags falharem
+        // NÃ£o bloquear upload se tags falharem
       }
     }
 
     res.status(201).json({
-      message: 'Mídia enviada com sucesso!',
+      message: 'MÃ­dia enviada com sucesso!',
       media: {
         ...media.toJSON(),
         tags: associatedTags
@@ -103,7 +119,7 @@ async function uploadMedia(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro ao fazer upload de mídia:', error);
+    console.error('Erro ao fazer upload de mÃ­dia:', error);
 
     // Se houver erro ao criar no banco, deletar arquivo do S3
     if (req.file && req.file.key) {
@@ -112,7 +128,7 @@ async function uploadMedia(req, res) {
         Key: req.file.key
       };
       s3Client.send(new DeleteObjectCommand(deleteParams))
-        .catch(err => console.error('Erro ao deletar arquivo órfão do S3:', err));
+        .catch(err => console.error('Erro ao deletar arquivo Ã³rfÃ£o do S3:', err));
     }
 
     res.status(500).json({
@@ -122,7 +138,7 @@ async function uploadMedia(req, res) {
   }
 }
 
-// GET /media - Listar todas as mídias do usuário autenticado
+// GET /media - Listar todas as mÃ­dias do usuÃ¡rio autenticado
 async function listUserMedia(req, res) {
   try {
     const { 
@@ -130,19 +146,19 @@ async function listUserMedia(req, res) {
       active, 
       search, 
       tag,           // Filtro por UUID de tag
-      tags,          // Filtro por múltiplos UUIDs de tags (JSON array)
+      tags,          // Filtro por mÃºltiplos UUIDs de tags (JSON array)
       limit = 20, 
       page = 1, 
       sortBy = 'created_at', 
       sortOrder = 'DESC' 
     } = req.query;
 
-    // Validação de paginação
+    // ValidaÃ§Ã£o de paginaÃ§Ã£o
     const pageNum = Math.max(1, parseInt(page) || 1);
     const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
     const offset = (pageNum - 1) * limitNum;
 
-    // Validação de ordenação
+    // ValidaÃ§Ã£o de ordenaÃ§Ã£o
     const validSortFields = ['created_at', 'size', 'filename', 'title'];
     const validSortOrders = ['ASC', 'DESC'];
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'created_at';
@@ -158,7 +174,7 @@ async function listUserMedia(req, res) {
     if (active !== undefined) {
       where.active = active === 'true';
     } else {
-      // Por padrão, mostrar apenas mídias ativas
+      // Por padrÃ£o, mostrar apenas mÃ­dias ativas
       where.active = true;
     }
 
@@ -185,7 +201,7 @@ async function listUserMedia(req, res) {
 
     let mediaIds = null;
     if (tagFilter.length > 0) {
-      // Buscar tags do usuário
+      // Buscar tags do usuÃ¡rio
       const userTags = await Tag.findAll({
         where: {
           uuid: tagFilter,
@@ -194,17 +210,17 @@ async function listUserMedia(req, res) {
       });
 
       if (userTags.length > 0) {
-        // Buscar mídias que têm TODAS as tags (interseção)
+        // Buscar mÃ­dias que tÃªm TODAS as tags (interseÃ§Ã£o)
         const tagIds = userTags.map(t => t.id);
         
-        // Para cada tag, buscar mídias associadas
+        // Para cada tag, buscar mÃ­dias associadas
         const mediaTagsPromises = tagIds.map(tagId => 
           MediaTag.findAll({ where: { tagId } })
         );
         
         const mediaTagsResults = await Promise.all(mediaTagsPromises);
         
-        // Interseção: mídias que aparecem em TODAS as buscas
+        // InterseÃ§Ã£o: mÃ­dias que aparecem em TODAS as buscas
         const mediaSets = mediaTagsResults.map(
           results => new Set(results.map(mt => mt.mediaId))
         );
@@ -217,7 +233,7 @@ async function listUserMedia(req, res) {
         mediaIds = [...intersection];
         
         if (mediaIds.length === 0) {
-          // Nenhuma mídia com todas as tags
+          // Nenhuma mÃ­dia com todas as tags
           return res.json({
             stats: { total: 0, filtered: 0, images: 0, videos: 0, audios: 0 },
             medias: [],
@@ -232,10 +248,10 @@ async function listUserMedia(req, res) {
       }
     }
 
-    // Contar total ANTES de aplicar paginação
+    // Contar total ANTES de aplicar paginaÃ§Ã£o
     const total = await Media.count({ where });
 
-    // Buscar mídias com tags
+    // Buscar mÃ­dias com tags
     const medias = await Media.findAll({
       where,
       order: [[sortField, sortDirection]],
@@ -244,7 +260,7 @@ async function listUserMedia(req, res) {
       offset: offset
     });
 
-    // Buscar tags para cada mídia
+    // Buscar tags para cada mÃ­dia
     const mediasWithTags = await Promise.all(
       medias.map(async (media) => {
         const mediaTags = await MediaTag.findAll({
@@ -266,7 +282,7 @@ async function listUserMedia(req, res) {
 
     const totalPages = Math.ceil(total / limitNum);
 
-    // Estatísticas
+    // EstatÃ­sticas
     const stats = {
       total: medias.length,
       filtered: total,
@@ -290,15 +306,15 @@ async function listUserMedia(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro ao listar mídias:', error);
+    console.error('Erro ao listar mÃ­dias:', error);
     res.status(500).json({
-      error: 'Erro ao listar mídias',
+      error: 'Erro ao listar mÃ­dias',
       details: error.message
     });
   }
 }
 
-// GET /media/:uuid - Buscar uma mídia específica
+// GET /media/:uuid - Buscar uma mÃ­dia especÃ­fica
 async function getMediaByUuid(req, res) {
   try {
     const { uuid } = req.params;
@@ -306,15 +322,15 @@ async function getMediaByUuid(req, res) {
     const media = await Media.findByUuid(uuid);
 
     if (!media) {
-      return res.status(404).json({ error: 'Mídia não encontrada' });
+      return res.status(404).json({ error: 'MÃ­dia nÃ£o encontrada' });
     }
 
-    // Verificar se a mídia pertence ao usuário autenticado
+    // Verificar se a mÃ­dia pertence ao usuÃ¡rio autenticado
     if (media.userId !== req.user.id) {
       return res.status(403).json({ error: 'Acesso negado' });
     }
 
-    // Buscar tags da mídia
+    // Buscar tags da mÃ­dia
     const mediaTags = await MediaTag.findAll({
       where: { mediaId: media.id }
     });
@@ -333,15 +349,15 @@ async function getMediaByUuid(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro ao buscar mídia:', error);
+    console.error('Erro ao buscar mÃ­dia:', error);
     res.status(500).json({
-      error: 'Erro ao buscar mídia',
+      error: 'Erro ao buscar mÃ­dia',
       details: error.message
     });
   }
 }
 
-// DELETE /media/:uuid - Deletar uma mídia específica (soft delete)
+// DELETE /media/:uuid - Deletar uma mÃ­dia especÃ­fica (soft delete)
 async function deleteMedia(req, res) {
   try {
     const { uuid } = req.params;
@@ -350,7 +366,7 @@ async function deleteMedia(req, res) {
     const media = await Media.findByUuid(uuid);
 
     if (!media) {
-      return res.status(404).json({ error: 'Mídia não encontrada' });
+      return res.status(404).json({ error: 'MÃ­dia nÃ£o encontrada' });
     }
 
     // Verificar propriedade
@@ -382,21 +398,21 @@ async function deleteMedia(req, res) {
             Key: media.thumbnail_s3_key
           };
           await s3Client.send(new DeleteObjectCommand(deleteThumbnailParams));
-          console.log(`✓ Thumbnail deletada do S3: ${media.thumbnail_s3_key}`);
+          console.log(`âœ“ Thumbnail deletada do S3: ${media.thumbnail_s3_key}`);
         } catch (s3Error) {
-          console.error('⚠ Erro ao deletar thumbnail do S3:', s3Error);
+          console.error('âš  Erro ao deletar thumbnail do S3:', s3Error);
           // Continuar mesmo se falhar no S3
         }
       }
 
-      // Deletar associações com tags
+      // Deletar associaÃ§Ãµes com tags
       await MediaTag.destroy({ where: { mediaId: media.id } });
 
       // Deletar do banco
       await media.destroy();
 
       res.json({
-        message: 'Mídia deletada permanentemente',
+        message: 'MÃ­dia deletada permanentemente',
         uuid: media.uuid
       });
 
@@ -405,15 +421,15 @@ async function deleteMedia(req, res) {
       await media.softDelete();
 
       res.json({
-        message: 'Mídia movida para a lixeira',
+        message: 'MÃ­dia movida para a lixeira',
         uuid: media.uuid
       });
     }
 
   } catch (error) {
-    console.error('Erro ao deletar mídia:', error);
+    console.error('Erro ao deletar mÃ­dia:', error);
     res.status(500).json({
-      error: 'Erro ao deletar mídia',
+      error: 'Erro ao deletar mÃ­dia',
       details: error.message
     });
   }
@@ -428,7 +444,7 @@ async function updateMedia(req, res) {
     const media = await Media.findByUuid(uuid);
 
     if (!media) {
-      return res.status(404).json({ error: 'Mídia não encontrada' });
+      return res.status(404).json({ error: 'MÃ­dia nÃ£o encontrada' });
     }
 
     // Verificar propriedade
@@ -440,7 +456,7 @@ async function updateMedia(req, res) {
     if (title !== undefined) updates.title = title;
     if (description !== undefined) updates.description = description;
 
-    // Atualizar campos básicos
+    // Atualizar campos bÃ¡sicos
     if (Object.keys(updates).length > 0) {
       await media.update(updates);
     }
@@ -452,7 +468,7 @@ async function updateMedia(req, res) {
       await MediaTag.destroy({ where: { mediaId: media.id } });
 
       if (Array.isArray(tagUuids) && tagUuids.length > 0) {
-        // Buscar tags válidas do usuário
+        // Buscar tags vÃ¡lidas do usuÃ¡rio
         const tags = await Tag.findAll({
           where: {
             uuid: tagUuids,
@@ -460,7 +476,7 @@ async function updateMedia(req, res) {
           }
         });
 
-        // Criar novas associações
+        // Criar novas associaÃ§Ãµes
         const associations = tags.map(tag => ({
           mediaId: media.id,
           tagId: tag.id
@@ -472,7 +488,7 @@ async function updateMedia(req, res) {
         }
       }
     } else {
-      // Buscar tags atuais se não foram fornecidas
+      // Buscar tags atuais se nÃ£o foram fornecidas
       const mediaTags = await MediaTag.findAll({ where: { mediaId: media.id } });
       const tagIds = mediaTags.map(mt => mt.tagId);
       if (tagIds.length > 0) {
@@ -482,7 +498,7 @@ async function updateMedia(req, res) {
     }
 
     res.json({
-      message: 'Mídia atualizada com sucesso',
+      message: 'MÃ­dia atualizada com sucesso',
       media: {
         ...media.toJSON(),
         tags: updatedTags
@@ -490,22 +506,22 @@ async function updateMedia(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro ao atualizar mídia:', error);
+    console.error('Erro ao atualizar mÃ­dia:', error);
     res.status(500).json({
-      error: 'Erro ao atualizar mídia',
+      error: 'Erro ao atualizar mÃ­dia',
       details: error.message
     });
   }
 }
 
-// GET /media/:uuid/tags - Listar tags de uma mídia específica
+// GET /media/:uuid/tags - Listar tags de uma mÃ­dia especÃ­fica
 async function getMediaTags(req, res) {
   try {
     const { uuid } = req.params;
 
     const media = await Media.findByUuid(uuid);
     if (!media) {
-      return res.status(404).json({ error: 'Mídia não encontrada' });
+      return res.status(404).json({ error: 'MÃ­dia nÃ£o encontrada' });
     }
 
     // Verificar propriedade
@@ -530,7 +546,7 @@ async function getMediaTags(req, res) {
     });
 
   } catch (error) {
-    console.error('Erro ao listar tags da mídia:', error);
+    console.error('Erro ao listar tags da mÃ­dia:', error);
     res.status(500).json({
       error: 'Erro ao listar tags',
       details: error.message

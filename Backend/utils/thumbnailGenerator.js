@@ -1,14 +1,15 @@
 const sharp = require('sharp');
 const ffmpeg = require('fluent-ffmpeg');
 const { Upload } = require('@aws-sdk/lib-storage');
-const { GetObjectCommand } = require('@aws-sdk/client-s3');
 const s3Client = require('../config/s3');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { execSync } = require('child_process');
+const https = require('https');
+const http = require('http');
 
-// Função para verificar se um comando existe no sistema
+// Funcao para verificar se um comando existe no sistema
 function commandExists(cmd) {
   try {
     execSync(`which ${cmd}`, { stdio: 'ignore' });
@@ -24,11 +25,11 @@ function configureFfmpeg() {
   const systemFfprobe = commandExists('ffprobe');
 
   if (systemFfmpeg && systemFfprobe) {
-    console.log('✓ Usando FFmpeg/FFprobe do sistema');
+    console.log('Usando FFmpeg FFprobe do sistema');
     return;
   }
 
-  console.log('⚠ FFmpeg/FFprobe não encontrados no sistema, usando binários estáticos...');
+  console.log('FFmpeg FFprobe nao encontrados no sistema usando binarios estaticos');
   try {
     const ffmpegStatic = require('ffmpeg-static');
     const ffprobeStatic = require('ffprobe-static');
@@ -36,13 +37,13 @@ function configureFfmpeg() {
     if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
     if (ffprobeStatic && ffprobeStatic.path) ffmpeg.setFfprobePath(ffprobeStatic.path);
     
-    console.log('✓ Binários estáticos configurados');
+    console.log('Binarios estaticos configurados');
   } catch (err) {
-    console.error('✗ Erro ao configurar binários estáticos:', err.message);
+    console.error('Erro ao configurar binarios estaticos', err.message);
   }
 }
 
-// Inicializar configuração
+// Inicializar configuracao
 configureFfmpeg();
 
 // Constantes
@@ -52,43 +53,63 @@ const THUMBNAIL_QUALITY = 80;
 const VIDEO_TIMEOUT = 30000;
 
 /**
- * Helper: Download de arquivo do S3
+ * Helper - Download de arquivo via URL publica em vez do AWS SDK
  */
 async function downloadFromS3(s3Url) {
-  try {
-    const urlObj = new URL(s3Url);
-    const bucket = process.env.AWS_BUCKET_NAME;
-    const key = urlObj.pathname.substring(1);
-
-    console.log(`Downloading from S3: ${key}`);
-
-    const command = new GetObjectCommand({
-      Bucket: bucket,
-      Key: key
-    });
-
-    const response = await s3Client.send(command);
-
-    const chunks = [];
-    for await (const chunk of response.Body) {
-      chunks.push(chunk);
+  return new Promise((resolve, reject) => {
+    try {
+      console.log(`Downloading from URL ${s3Url}`);
+      
+      const protocol = s3Url.startsWith('https') ? https : http;
+      
+      protocol.get(s3Url, (response) => {
+        // Verificar se houve redirecionamento
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          downloadFromS3(response.headers.location).then(resolve).catch(reject);
+          return;
+        }
+        
+        // Verificar status de sucesso
+        if (response.statusCode !== 200) {
+          reject(new Error(`Erro HTTP ${response.statusCode} ao baixar arquivo`));
+          return;
+        }
+        
+        const chunks = [];
+        
+        response.on('data', (chunk) => {
+          chunks.push(chunk);
+        });
+        
+        response.on('end', () => {
+          const buffer = Buffer.concat(chunks);
+          console.log(`Download completo ${buffer.length} bytes`);
+          resolve(buffer);
+        });
+        
+        response.on('error', (err) => {
+          reject(new Error(`Erro ao baixar arquivo ${err.message}`));
+        });
+        
+      }).on('error', (err) => {
+        reject(new Error(`Erro na requisicao ${err.message}`));
+      });
+      
+    } catch (error) {
+      console.error('Erro ao baixar do S3', error);
+      reject(new Error(`Falha ao baixar arquivo ${error.message}`));
     }
-
-    return Buffer.concat(chunks);
-  } catch (error) {
-    console.error('Erro ao baixar do S3:', error);
-    throw new Error(`Falha ao baixar arquivo do S3: ${error.message}`);
-  }
+  });
 }
 
 /**
- * Helper: Obter duração de vídeo
+ * Helper - Obter duracao de video
  */
 function getVideoDuration(s3Url) {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(s3Url, (err, metadata) => {
       if (err) {
-        reject(new Error(`Erro ao obter duração do vídeo: ${err.message}`));
+        reject(new Error(`Erro ao obter duracao do video ${err.message}`));
       } else {
         const duration = metadata.format.duration || 0;
         resolve(duration);
@@ -102,7 +123,7 @@ function getVideoDuration(s3Url) {
  */
 async function generateImageThumbnail(s3Url) {
   try {
-    console.log(`Gerando thumbnail de imagem...`);
+    console.log(`Gerando thumbnail de imagem`);
 
     const imageBuffer = await downloadFromS3(s3Url);
 
@@ -114,27 +135,27 @@ async function generateImageThumbnail(s3Url) {
       .webp({ quality: THUMBNAIL_QUALITY })
       .toBuffer();
 
-    console.log(`✓ Thumbnail de imagem gerada: ${thumbnailBuffer.length} bytes`);
+    console.log(`Thumbnail de imagem gerada ${thumbnailBuffer.length} bytes`);
     return thumbnailBuffer;
 
   } catch (error) {
-    console.error('Erro ao gerar thumbnail de imagem:', error);
+    console.error('Erro ao gerar thumbnail de imagem', error);
     throw error;
   }
 }
 
 /**
- * Gerar thumbnail de vídeo (frame do meio)
+ * Gerar thumbnail de video frame do meio
  */
 async function generateVideoThumbnail(s3Url) {
   return new Promise(async (resolve, reject) => {
     let tempFramePath = null;
 
     try {
-      console.log(`Gerando thumbnail de vídeo...`);
+      console.log(`Gerando thumbnail de video`);
 
       const duration = await getVideoDuration(s3Url);
-      console.log(`Duração do vídeo: ${duration}s`);
+      console.log(`Duracao do video ${duration}s`);
 
       let timestamp = duration / 2;
       if (duration < 1) {
@@ -162,7 +183,7 @@ async function generateVideoThumbnail(s3Url) {
 
             fs.unlinkSync(tempFramePath);
 
-            console.log(`✓ Thumbnail de vídeo gerada: ${thumbnailBuffer.length} bytes`);
+            console.log(`Thumbnail de video gerada ${thumbnailBuffer.length} bytes`);
             resolve(thumbnailBuffer);
 
           } catch (processError) {
@@ -176,7 +197,7 @@ async function generateVideoThumbnail(s3Url) {
           if (tempFramePath && fs.existsSync(tempFramePath)) {
             fs.unlinkSync(tempFramePath);
           }
-          reject(new Error(`Erro ao extrair frame do vídeo: ${err.message}`));
+          reject(new Error(`Erro ao extrair frame do video ${err.message}`));
         })
         .run();
 
@@ -184,7 +205,7 @@ async function generateVideoThumbnail(s3Url) {
         if (tempFramePath && fs.existsSync(tempFramePath)) {
           fs.unlinkSync(tempFramePath);
         }
-        reject(new Error('Timeout ao gerar thumbnail de vídeo (30s)'));
+        reject(new Error('Timeout ao gerar thumbnail de video 30s'));
       }, VIDEO_TIMEOUT);
 
     } catch (error) {
@@ -207,7 +228,7 @@ async function uploadThumbnailToS3(thumbnailBuffer, userUuid, originalFilename) 
       .replace(/[^a-zA-Z0-9._-]/g, '_');
     const key = `uploads/${userUuid}/thumbs/thumb_150_${timestamp}_${sanitizedFilename}.webp`;
 
-    console.log(`Uploading thumbnail to S3: ${key}`);
+    console.log(`Uploading thumbnail to S3 ${key}`);
 
     const upload = new Upload({
       client: s3Client,
@@ -225,25 +246,25 @@ async function uploadThumbnailToS3(thumbnailBuffer, userUuid, originalFilename) 
     const bucket = process.env.AWS_BUCKET_NAME;
     const url = `https://${bucket}.s3.${region}.amazonaws.com/${key}`;
 
-    console.log(`✓ Thumbnail uploaded: ${url}`);
+    console.log(`Thumbnail uploaded ${url}`);
 
     return { url, key };
 
   } catch (error) {
-    console.error('Erro ao fazer upload da thumbnail:', error);
-    throw new Error(`Falha ao fazer upload da thumbnail: ${error.message}`);
+    console.error('Erro ao fazer upload da thumbnail', error);
+    throw new Error(`Falha ao fazer upload da thumbnail ${error.message}`);
   }
 }
 
 /**
- * Função principal: Gerar e fazer upload de thumbnail
+ * Funcao principal - Gerar e fazer upload de thumbnail
  */
 async function generateThumbnail({ mediaType, fileUrl, userUuid, filename, metadata }) {
   try {
-    console.log(`\n=== Gerando thumbnail para ${mediaType}: ${filename} ===`);
+    console.log(`\n=== Gerando thumbnail para ${mediaType} ${filename} ===`);
 
     if (mediaType === 'audio') {
-      console.log('Tipo áudio: sem thumbnail');
+      console.log('Tipo audio sem thumbnail');
       return { thumbnail_url: null, thumbnail_s3_key: null };
     }
 
@@ -254,7 +275,7 @@ async function generateThumbnail({ mediaType, fileUrl, userUuid, filename, metad
     } else if (mediaType === 'video') {
       thumbnailBuffer = await generateVideoThumbnail(fileUrl);
     } else {
-      throw new Error(`Tipo de mídia não suportado: ${mediaType}`);
+      throw new Error(`Tipo de midia nao suportado ${mediaType}`);
     }
 
     const { url, key } = await uploadThumbnailToS3(thumbnailBuffer, userUuid, filename);
@@ -267,7 +288,7 @@ async function generateThumbnail({ mediaType, fileUrl, userUuid, filename, metad
     };
 
   } catch (error) {
-    console.error(`✗ Erro ao gerar thumbnail:`, error.message);
+    console.error(`Erro ao gerar thumbnail`, error.message);
     return { thumbnail_url: null, thumbnail_s3_key: null };
   }
 }

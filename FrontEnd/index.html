@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
-    <!-- Login Page -->
     <div id="loginPage" class="page active">
         <div class="login-page">
             <div class="login-header">
@@ -44,7 +43,6 @@
         </div>
     </div>
 
-    <!-- Signup Page -->
     <div id="signupPage" class="page">
         <div class="login-page">
             <div class="login-header">
@@ -81,7 +79,6 @@
         </div>
     </div>
 
-    <!-- Profile Page -->
     <div id="profilePage" class="page">
         <div class="container profile-page">
             <div class="profile-header">
@@ -139,7 +136,6 @@
         </div>
     </div>
 
-    <!-- Dashboard Page -->
     <div id="dashboardPage" class="page">
         <div class="container dashboard-page">
             <div class="dashboard-header">
@@ -166,9 +162,7 @@
                     <button id="uploadMediaBtn" class="btn btn-primary">📤 Upload de Mídia</button>
                 </div>
 
-                <!-- Barra de filtros -->
                 <div class="media-filters">
-                    <!-- Filtro por tipo -->
                     <div class="filter-group">
                         <label>Tipo:</label>
                         <select id="typeFilter" class="filter-select">
@@ -179,16 +173,13 @@
                         </select>
                     </div>
 
-                    <!-- Filtro por tag -->
                     <div class="filter-group">
                         <label>Tag:</label>
                         <select id="tagFilter" class="filter-select">
                             <option value="">Todas</option>
-                            <!-- Populado via JS -->
-                        </select>
+                            </select>
                     </div>
 
-                    <!-- Ordenação -->
                     <div class="filter-group">
                         <label>Ordenar:</label>
                         <select id="sortFilter" class="filter-select">
@@ -201,7 +192,6 @@
                         </select>
                     </div>
 
-                    <!-- Info de resultados -->
                     <div class="filter-info">
                         <span id="resultsCount">Carregando...</span>
                     </div>
@@ -209,7 +199,6 @@
 
                 <div id="mediaGalleryError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
 
-                <!-- Tabela de mídias -->
                 <div class="table-container">
                     <table class="media-table">
                         <thead>
@@ -224,18 +213,15 @@
                             </tr>
                         </thead>
                         <tbody id="mediaTableBody">
-                            <!-- Linhas renderizadas via JS -->
-                        </tbody>
+                            </tbody>
                     </table>
                 </div>
 
-                <!-- Controles de paginação -->
                 <div id="paginationControls" class="pagination-controls"></div>
             </div>
         </div>
     </div>
 
-    <!-- Modal de Senha -->
     <div id="senhaModal" class="modal-overlay">
         <div class="modal-card">
             <h3>Digite sua senha atual:</h3>
@@ -247,7 +233,6 @@
         </div>
     </div>
 
-    <!-- Modal de Upload -->
     <div id="uploadMediaModal" class="modal-overlay">
         <div class="modal-card" style="max-width: 550px;">
             <h3 style="margin-bottom: var(--space-16);">📤 Upload de Mídia</h3>
@@ -275,8 +260,7 @@
                 <div class="form-group">
                     <label class="form-label">Tags (opcional)</label>
                     <div id="uploadTagsContainer" class="tags-selector">
-                        <!-- Tags renderizadas via JS -->
-                    </div>
+                        </div>
                 </div>
 
                 <div class="modal-actions">
@@ -287,7 +271,6 @@
         </div>
     </div>
 
-    <!-- Modal de Gerenciamento de Tags -->
     <div id="tagsModal" class="modal-overlay">
         <div class="modal-card" style="max-width: 600px;">
             <div class="modal-header">
@@ -297,17 +280,14 @@
 
             <div id="tagsError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
 
-            <!-- Criar nova tag -->
             <div class="tag-create-form">
                 <input type="text" id="newTagName" class="form-input" placeholder="Nome da nova tag" maxlength="50" />
                 <input type="color" id="newTagColor" class="color-picker" value="#3B82F6" />
                 <button onclick="createTag()" class="btn btn-primary">Criar</button>
             </div>
 
-            <!-- Lista de tags -->
             <div id="tagsListContainer" class="tags-list">
-                <!-- Tags renderizadas via JS -->
-            </div>
+                </div>
 
             <div class="modal-footer">
                 <button onclick="closeTagsModal()" class="btn btn-secondary">Fechar</button>
@@ -315,7 +295,6 @@
         </div>
     </div>
 
-    <!-- Modal de Editar Tags da Mídia -->
     <div id="editMediaTagsModal" class="modal-overlay">
         <div class="modal-card" style="max-width: 500px;">
             <div class="modal-header">
@@ -328,12 +307,46 @@
             <div id="editMediaTagsError" class="error-message" style="display:none; margin-bottom: var(--space-16);"></div>
 
             <div id="editMediaTagsContainer" class="tags-selector">
-                <!-- Tags renderizadas via JS -->
-            </div>
+                </div>
 
             <div class="modal-actions" style="margin-top: var(--space-24);">
                 <button onclick="closeEditMediaTagsModal()" class="btn btn-secondary">Cancelar</button>
                 <button onclick="saveMediaTags()" id="saveMediaTagsBtn" class="btn btn-primary">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="mediaDetailsModal" class="modal-overlay">
+        <div class="modal-card" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 id="mediaDetailsTitle">Detalhes da Midia</h3>
+                <button onclick="closeMediaDetailsModal()" class="modal-close">✕</button>
+            </div>
+
+            <div id="mediaDetailsPreview" style="text-align: center; margin-bottom: var(--space-16); max-height: 300px; overflow: hidden;">
+                </div>
+
+            <div style="margin-bottom: var(--space-16);">
+                <h4 style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">Informacoes Basicas</h4>
+                <div id="mediaBasicInfo" class="metadata-grid">
+                    </div>
+            </div>
+
+            <div id="mediaMetadataSection" style="margin-bottom: var(--space-16);">
+                <h4 style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">Metadados Tecnicos</h4>
+                <div id="mediaMetadataInfo" class="metadata-grid">
+                    </div>
+            </div>
+
+            <div id="mediaExifSection" style="display: none; margin-bottom: var(--space-16);">
+                <h4 style="font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); margin-bottom: var(--space-8);">Dados EXIF</h4>
+                <div id="mediaExifInfo" class="metadata-grid">
+                    </div>
+            </div>
+
+            <div class="modal-footer">
+                <a id="mediaDownloadLink" href="#" target="_blank" class="btn btn-secondary" style="text-decoration: none;">Abrir Original</a>
+                <button onclick="closeMediaDetailsModal()" class="btn btn-primary">Fechar</button>
             </div>
         </div>
     </div>
