@@ -1,0 +1,100 @@
+# ============================================
+# SGM - Sistema de Gerenciamento Multimidia
+# Dockerfile Aprimorado para Producao
+# ============================================
+
+# ===========================================
+# Estagio 1 - Builder
+# ===========================================
+# Node.js 22 LTS com Alpine 3.21 versao segura
+FROM node:22-alpine3.21 AS builder
+
+# Dependencias de build para Sharp e outras libs nativas
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    gcc \
+    libc-dev \
+    linux-headers
+
+WORKDIR /app
+
+# Copiar apenas arquivos de dependencias para aproveitar cache
+COPY Backend/package*.json ./
+
+# Instalar todas as dependencias incluindo devDependencies para build
+RUN npm ci
+
+# ===========================================
+# Estagio 2 - Producao
+# ===========================================
+FROM node:22-alpine3.21
+
+# Metadados
+LABEL maintainer="SGM Team"
+LABEL description="Sistema de Gerenciamento Multimidia"
+LABEL version="1.0.0"
+
+# Instalar dependencias de runtime
+RUN apk add --no-cache \
+    # FFmpeg e FFprobe para processamento de video e audio
+    ffmpeg \
+    # Dependencias do Sharp
+    vips-dev \
+    fftw-dev \
+    # Utilitarios
+    curl \
+    # Netcat para verificar conexoes
+    busybox-extras \
+    # Timezone
+    tzdata \
+    # Bash para scripts
+    bash
+
+# Timezone Brasil
+ENV TZ=America/Sao_Paulo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Usuario nao root para seguranca
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S sgm -u 1001 -G nodejs
+
+WORKDIR /app
+
+# Copiar node_modules do builder apenas producao
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copiar codigo do Backend
+COPY Backend/ ./
+
+# Copiar Frontend
+COPY FrontEnd/ ./FrontEnd/
+
+# Copiar script de entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Criar diretorios com permissoes corretas
+RUN mkdir -p /app/database /app/uploads /app/logs && \
+    chown -R sgm:nodejs /app
+
+# Mudar para usuario nao root
+USER sgm
+
+# Variaveis de ambiente
+ENV NODE_ENV=production \
+    PORT=3333 \
+    # Desabilitar inicializacao automatica do banco por padrao
+    AUTO_INIT_DB=false
+
+# Porta da aplicacao
+EXPOSE 3333
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3333/health || exit 1
+
+# Entrypoint e comando
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["node", "index.js"]

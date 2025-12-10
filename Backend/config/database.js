@@ -1,24 +1,51 @@
 const { Sequelize } = require('sequelize');
-const path = require('path');
-const fs = require('fs');
+require('dotenv').config();
 
-// Caminho onde o arquivo do banco será criado
-const databasePath = path.resolve(__dirname, '..', 'database');
-    if (!fs.existsSync(databasePath)) {
-      fs.mkdirSync(databasePath, { recursive: true });
-      console.log('Pasta database/ criada');
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const DB_HOST = process.env.DB_HOST;
+
+let sequelize;
+
+// Se DB_HOST estiver definido, usar PostgreSQL (produção)
+// Caso contrário, usar SQLite (desenvolvimento local)
+if (DB_HOST) {
+  console.log('📦 Configurando PostgreSQL (AWS RDS)...');
+  
+  sequelize = new Sequelize({
+    dialect: 'postgres',
+    host: DB_HOST,
+    port: process.env.DB_PORT || 5432,
+    username: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    dialectOptions: {
+      ssl: {
+        require: true,
+        rejectUnauthorized: false // Necessário para AWS RDS
+      }
+    },
+    logging: NODE_ENV === 'development' ? console.log : false,
+    define: {
+      timestamps: false,
+      freezeTableName: true
     }
-const dbPath = path.resolve(__dirname, '..','database', 'database.sqlite');
-
-// Criar instância do Sequelize
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: dbPath, // caminho do sqlite
-  logging: console.log, // debug: mostra as queries no console
-  define: {
-    timestamps: false, // desabilita createdAt/updatedAt automáticos
-    freezeTableName: true 
-  }
-});
+  });
+  
+} else {
+  console.log('📦 Configurando SQLite (desenvolvimento local)...');
+  
+  const path = require('path');
+  const dbPath = path.join(__dirname, '..', 'database', 'database.sqlite');
+  
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: dbPath,
+    logging: NODE_ENV === 'development' ? console.log : false,
+    define: {
+      timestamps: false,
+      freezeTableName: true
+    }
+  });
+}
 
 module.exports = sequelize;
