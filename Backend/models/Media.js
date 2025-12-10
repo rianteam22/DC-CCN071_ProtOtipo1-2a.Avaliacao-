@@ -14,37 +14,53 @@ const Media = sequelize.define('Media', {
     defaultValue: () => uuidv4(),
     allowNull: false,
     unique: true,
-    comment: 'Identificador Ãºnico da mÃ­dia'
+    comment: 'Identificador unico da midia'
   },
 
   type: {
     type: DataTypes.ENUM('image', 'video', 'audio'),
     allowNull: false,
-    comment: 'Tipo de mÃ­dia'
+    comment: 'Tipo de midia'
   },
 
   url: {
     type: DataTypes.STRING,
     allowNull: false,
-    comment: 'URL pÃºblica do S3'
+    comment: 'URL publica do S3'
   },
 
   s3_key: {
     type: DataTypes.STRING,
     allowNull: false,
-    comment: 'Chave S3 para deleÃ§Ã£o (e.g., uploads/{uuid}/videos/{timestamp}_{filename})'
+    comment: 'Chave S3 para delecao'
   },
 
   thumbnail_url: {
     type: DataTypes.STRING,
     allowNull: true,
-    comment: 'URL pÃºblica da thumbnail no S3 (150x150px WebP)'
+    comment: 'URL publica da thumbnail no S3 150x150px WebP'
   },
 
   thumbnail_s3_key: {
     type: DataTypes.STRING,
     allowNull: true,
-    comment: 'Chave S3 da thumbnail para deleÃ§Ã£o'
+    comment: 'Chave S3 da thumbnail para delecao'
+  },
+
+  // Campo para armazenar versoes de qualidade do video
+  video_versions: {
+    type: DataTypes.JSON,
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Versoes de qualidade do video 1080p 720p 480p com URLs e metadados'
+  },
+
+  // Status do processamento de video
+  processing_status: {
+    type: DataTypes.ENUM('pending', 'processing', 'completed', 'failed'),
+    allowNull: true,
+    defaultValue: null,
+    comment: 'Status do processamento de transcodificacao do video'
   },
 
   userId: {
@@ -55,7 +71,7 @@ const Media = sequelize.define('Media', {
       key: 'id'
     },
     onDelete: 'CASCADE',
-    comment: 'ID do usuÃ¡rio proprietÃ¡rio'
+    comment: 'ID do usuario proprietario'
   },
 
   title: {
@@ -64,10 +80,10 @@ const Media = sequelize.define('Media', {
     validate: {
       len: {
         args: [0, 255],
-        msg: 'TÃ­tulo deve ter no mÃ¡ximo 255 caracteres'
+        msg: 'Titulo deve ter no maximo 255 caracteres'
       }
     },
-    comment: 'TÃ­tulo opcional da mÃ­dia'
+    comment: 'Titulo opcional da midia'
   },
 
   description: {
@@ -76,10 +92,10 @@ const Media = sequelize.define('Media', {
     validate: {
       len: {
         args: [0, 1000],
-        msg: 'DescriÃ§Ã£o deve ter no mÃ¡ximo 1000 caracteres'
+        msg: 'Descricao deve ter no maximo 1000 caracteres'
       }
     },
-    comment: 'DescriÃ§Ã£o opcional da mÃ­dia'
+    comment: 'Descricao opcional da midia'
   },
 
   filename: {
@@ -104,28 +120,28 @@ const Media = sequelize.define('Media', {
     type: DataTypes.JSON,
     allowNull: true,
     defaultValue: null,
-    comment: 'Metadados extraidos do arquivo - dimensoes EXIF duracao etc'
+    comment: 'Metadados extraidos do arquivo dimensoes EXIF duracao etc'
   },
 
   active: {
     type: DataTypes.BOOLEAN,
     allowNull: false,
     defaultValue: true,
-    comment: 'Soft delete: false = na lixeira'
+    comment: 'Soft delete false igual na lixeira'
   },
 
   created_at: {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW,
-    comment: 'Data de criaÃ§Ã£o'
+    comment: 'Data de criacao'
   },
 
   updated_at: {
     type: DataTypes.DATE,
     allowNull: false,
     defaultValue: DataTypes.NOW,
-    comment: 'Data de Ãºltima atualizaÃ§Ã£o'
+    comment: 'Data de ultima atualizacao'
   }
 }, {
   tableName: 'media',
@@ -147,6 +163,10 @@ const Media = sequelize.define('Media', {
     {
       fields: ['type'],
       name: 'media_type_index'
+    },
+    {
+      fields: ['processing_status'],
+      name: 'media_processing_status_index'
     }
   ]
 });
@@ -158,14 +178,14 @@ Media.beforeUpdate((media) => {
   media.updated_at = new Date();
 });
 
-// MÃ‰TODOS ESTÃTICOS
+// METODOS ESTATICOS
 
 // Buscar por UUID
 Media.findByUuid = async function(uuid) {
   return await this.findOne({ where: { uuid } });
 };
 
-// Buscar mÃ­dias ativas do usuÃ¡rio
+// Buscar midias ativas do usuario
 Media.findActiveByUserId = async function(userId, type = null) {
   const where = { userId, active: true };
   if (type) where.type = type;
@@ -176,14 +196,26 @@ Media.findActiveByUserId = async function(userId, type = null) {
   });
 };
 
-// Contar mÃ­dias por tipo
+// Contar midias por tipo
 Media.countByType = async function(userId, type) {
   return await this.count({
     where: { userId, type, active: true }
   });
 };
 
-// MÃ‰TODOS DE INSTÃ‚NCIA
+// Buscar videos pendentes de processamento
+Media.findPendingVideoProcessing = async function() {
+  return await this.findAll({
+    where: {
+      type: 'video',
+      processing_status: 'pending',
+      active: true
+    },
+    order: [['created_at', 'ASC']]
+  });
+};
+
+// METODOS DE INSTANCIA
 
 // Soft delete
 Media.prototype.softDelete = async function() {
@@ -195,14 +227,86 @@ Media.prototype.restore = async function() {
   return await this.update({ active: true });
 };
 
-// ASSOCIAÃ‡Ã•ES
+// Atualizar versoes de video
+Media.prototype.updateVideoVersions = async function(versions, status = 'completed') {
+  return await this.update({
+    video_versions: versions,
+    processing_status: status
+  });
+};
+
+// Obter URL da qualidade especifica ou padrao 1080p
+Media.prototype.getVideoUrl = function(quality = '1080p') {
+  // Se nao for video retorna URL original
+  if (this.type !== 'video') {
+    return this.url;
+  }
+  
+  // Se nao tem versoes processadas retorna original
+  if (!this.video_versions || !Array.isArray(this.video_versions) || this.video_versions.length === 0) {
+    return this.url;
+  }
+  
+  // Procura a qualidade solicitada
+  const version = this.video_versions.find(v => v.quality === quality);
+  if (version) {
+    return version.url;
+  }
+  
+  // Se nao encontrou a qualidade solicitada tenta encontrar a melhor disponivel
+  const preferenceOrder = ['1080p', '720p', '480p'];
+  for (const q of preferenceOrder) {
+    const fallback = this.video_versions.find(v => v.quality === q);
+    if (fallback) {
+      return fallback.url;
+    }
+  }
+  
+  // Fallback para URL original
+  return this.url;
+};
+
+// Obter todas as qualidades disponiveis
+Media.prototype.getAvailableQualities = function() {
+  if (this.type !== 'video') {
+    return [];
+  }
+  
+  const qualities = [];
+  
+  // Sempre inclui original
+  qualities.push({
+    quality: 'original',
+    label: 'Original',
+    url: this.url,
+    width: this.metadata?.width || null,
+    height: this.metadata?.height || null
+  });
+  
+  // Adiciona versoes processadas
+  if (this.video_versions && Array.isArray(this.video_versions)) {
+    this.video_versions.forEach(v => {
+      qualities.push({
+        quality: v.quality,
+        label: v.label,
+        url: v.url,
+        width: v.width,
+        height: v.height
+      });
+    });
+  }
+  
+  return qualities;
+};
+
+// ASSOCIACOES
 Media.associate = function(models) {
   Media.belongsTo(models.User, {
     foreignKey: 'userId',
     as: 'user'
   });
 
-  // AssociaÃ§Ã£o com Tags (N:N)
+  // Associacao com Tags N:N
   Media.belongsToMany(models.Tag, {
     through: 'MediaTags',
     foreignKey: 'mediaId',

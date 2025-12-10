@@ -198,12 +198,8 @@ function renderMediaPreview(media) {
       break;
       
     case 'video':
-      container.innerHTML = `
-        <video controls class="media-details-preview video-preview">
-          <source src="${media.url}" type="${media.mimetype}">
-          Seu navegador nao suporta o elemento de video
-        </video>
-      `;
+      // Usar o novo player com seletor de qualidade
+      renderVideoPreviewWithQuality(media);
       break;
       
     case 'audio':
@@ -279,6 +275,40 @@ function renderBasicInfo(media) {
         <span class="metadata-value">${tagsHtml}</span>
       </div>
     `;
+  }
+  
+  // Para videos mostrar qualidades disponiveis e status
+  if (media.type === 'video') {
+    // Status de processamento
+    if (media.processing_status) {
+      const statusLabels = {
+        pending: '⏳ Aguardando',
+        processing: '🔄 Processando',
+        completed: '✅ Concluido',
+        failed: '❌ Falhou'
+      };
+      
+      html += `
+        <div class="metadata-item">
+          <span class="metadata-label">Status de processamento</span>
+          <span class="metadata-value">${statusLabels[media.processing_status] || media.processing_status}</span>
+        </div>
+      `;
+    }
+    
+    // Qualidades disponiveis
+    if (media.availableQualities && media.availableQualities.length > 0) {
+      const qualitiesHtml = media.availableQualities.map(q => 
+        `<span class="quality-tag available">${q.label || q.quality}</span>`
+      ).join(' ');
+      
+      html += `
+        <div class="metadata-item metadata-full-width">
+          <span class="metadata-label">Qualidades disponiveis</span>
+          <span class="metadata-value">${qualitiesHtml}</span>
+        </div>
+      `;
+    }
   }
   
   container.innerHTML = html;
@@ -1156,14 +1186,14 @@ function renderMediaTable() {
 
     let previewCell = '';
     if (media.thumbnail_url) {
-      previewCell = `
-        <a href="${media.url}" target="_blank" class="media-preview-link" title="Ver original">
-          <img src="${media.thumbnail_url}" alt="${media.filename}" class="media-thumb" loading="lazy" />
-        </a>`;
+    previewCell = `
+      <div class="media-thumb-container" onclick="openMediaDetailsModal('${media.uuid}')" style="cursor: pointer;" title="Ver detalhes">
+        <img src="${media.thumbnail_url}" alt="${media.filename}" class="media-thumb" loading="lazy" />
+      </div>`;
     } else if (media.type === 'audio') {
-      previewCell = '<span class="audio-icon">🎵</span>';
+      previewCell = `<span class="audio-icon" onclick="openMediaDetailsModal('${media.uuid}')" style="cursor: pointer;" title="Ver detalhes">🎵</span>`;
     } else {
-      previewCell = '<span class="no-thumb">—</span>';
+      previewCell = `<span class="no-thumb" onclick="openMediaDetailsModal('${media.uuid}')" style="cursor: pointer;" title="Ver detalhes">—</span>`;
     }
 
     const tagsHtml = renderMediaTags(media.tags || []);
@@ -1174,7 +1204,7 @@ function renderMediaTable() {
         <td class="type-cell">${typeIcon}</td>
         <td class="preview-cell">${previewCell}</td>
         <td class="name-cell">
-          <span class="media-name">${title}</span>
+          <span class="media-name media-name-link" onclick="openMediaDetailsModal('${media.uuid}')">${title}</span>
           ${media.description ? `<div class="media-desc-small">${media.description}</div>` : ''}
         </td>
         <td class="tags-cell">
@@ -1749,3 +1779,367 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   }
 });
+
+// ============================================
+// PLAYER DE VIDEO COM SELETOR DE QUALIDADE
+// ============================================
+
+// Estado do player de video
+const videoPlayerState = {
+  currentMediaUuid: null,
+  currentQuality: '1080p',
+  availableQualities: [],
+  isMenuOpen: false,
+  pollingInterval: null
+};
+
+// Renderizar preview de video com seletor de qualidade no modal de detalhes
+function renderVideoPreviewWithQuality(media) {
+  const container = document.getElementById('mediaDetailsPreview');
+  
+  const initialUrl = getVideoUrlForQuality(media, '1080p');
+  const qualities = media.availableQualities || [];
+  
+  videoPlayerState.currentMediaUuid = media.uuid;
+  videoPlayerState.currentQuality = '1080p';
+  videoPlayerState.availableQualities = qualities;
+  
+  let processingHtml = '';
+  
+  if (media.processing_status && media.processing_status !== 'completed') {
+    processingHtml = renderProcessingStatus(media.processing_status, media.uuid);
+  }
+  
+  // Controles fora do container do video para nao ser cortado
+  container.innerHTML = `
+    ${processingHtml}
+    <div class="video-player-container" id="videoPlayerContainer">
+      <video 
+        id="videoPlayer" 
+        controls 
+        preload="metadata"
+        poster="${media.thumbnail_url || ''}"
+      >
+        <source src="${initialUrl}" type="video/mp4">
+        Seu navegador nao suporta o elemento de video
+      </video>
+      
+      ${qualities.length > 1 ? `
+        <div class="video-controls" id="videoControls">
+          <span style="color: rgba(255,255,255,0.7); font-size: 12px; margin-right: auto;">Qualidade:</span>
+          <div class="quality-selector">
+            <button class="quality-btn" onclick="toggleQualityMenu()" id="qualityBtn">
+              <span id="currentQualityLabel">${getQualityLabel('1080p', qualities)}</span>
+              <span class="icon">▲</span>
+            </button>
+            <div class="quality-menu" id="qualityMenu">
+              ${renderQualityOptions(qualities, '1080p')}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  setupVideoPlayerEvents();
+  
+  if (media.processing_status === 'processing' || media.processing_status === 'pending') {
+    startProcessingPolling(media.uuid);
+  }
+}
+
+// Obter URL do video para qualidade especifica
+function getVideoUrlForQuality(media, quality) {
+  // Se tem versoes processadas buscar a qualidade solicitada
+  if (media.availableQualities && media.availableQualities.length > 0) {
+    const version = media.availableQualities.find(q => q.quality === quality);
+    if (version) {
+      return version.url;
+    }
+    
+    // Fallback ordem de preferencia
+    const preferenceOrder = ['1080p', '720p', '480p', 'original'];
+    for (const q of preferenceOrder) {
+      const fallback = media.availableQualities.find(v => v.quality === q);
+      if (fallback) {
+        return fallback.url;
+      }
+    }
+  }
+  
+  // Fallback para URL original
+  return media.url;
+}
+
+// Obter label da qualidade
+function getQualityLabel(quality, qualities) {
+  const q = qualities.find(item => item.quality === quality);
+  return q ? (q.label || quality) : quality;
+}
+
+// Renderizar opcoes de qualidade
+function renderQualityOptions(qualities, currentQuality) {
+  return qualities.map(q => `
+    <div 
+      class="quality-option ${q.quality === currentQuality ? 'active' : ''}"
+      onclick="selectQuality('${q.quality}')"
+      data-quality="${q.quality}"
+    >
+      <span class="quality-label">${q.label || q.quality}</span>
+      ${q.width && q.height ? `
+        <span class="quality-badge">${q.width}x${q.height}</span>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+// Renderizar status de processamento
+function renderProcessingStatus(status, mediaUuid) {
+  const statusConfig = {
+    pending: {
+      icon: '⏳',
+      text: 'Aguardando processamento de qualidades...',
+      class: 'pending'
+    },
+    processing: {
+      icon: '',
+      text: 'Processando versoes em diferentes qualidades...',
+      class: 'processing',
+      showSpinner: true
+    },
+    failed: {
+      icon: '❌',
+      text: 'Falha no processamento. ',
+      class: 'failed',
+      showRetry: true
+    },
+    completed: {
+      icon: '✅',
+      text: 'Processamento concluido!',
+      class: 'completed'
+    }
+  };
+  
+  const config = statusConfig[status] || statusConfig.pending;
+  
+  return `
+    <div class="processing-status ${config.class}" id="processingStatus">
+      ${config.showSpinner ? '<div class="processing-spinner"></div>' : `<span>${config.icon}</span>`}
+      <span class="processing-text">
+        ${config.text}
+        ${config.showRetry ? `
+          <button class="btn-reprocess" onclick="reprocessVideo('${mediaUuid}')">
+            🔄 Tentar novamente
+          </button>
+        ` : ''}
+      </span>
+    </div>
+  `;
+}
+
+// Toggle menu de qualidade
+function toggleQualityMenu() {
+  const menu = document.getElementById('qualityMenu');
+  const btn = document.getElementById('qualityBtn');
+  
+  if (menu) {
+    videoPlayerState.isMenuOpen = !videoPlayerState.isMenuOpen;
+    menu.classList.toggle('show', videoPlayerState.isMenuOpen);
+    
+    // Atualizar icone
+    const icon = btn.querySelector('.icon');
+    if (icon) {
+      icon.textContent = videoPlayerState.isMenuOpen ? '▼' : '▲';
+    }
+  }
+}
+
+// Selecionar qualidade
+function selectQuality(quality) {
+  const video = document.getElementById('videoPlayer');
+  const media = appState.mediaGallery.find(m => m.uuid === videoPlayerState.currentMediaUuid);
+  
+  if (!video || !media) return;
+  
+  // Salvar posicao atual
+  const currentTime = video.currentTime;
+  const wasPlaying = !video.paused;
+  
+  // Obter nova URL
+  const newUrl = getVideoUrlForQuality(media, quality);
+  
+  // Atualizar video
+  video.src = newUrl;
+  video.currentTime = currentTime;
+  
+  if (wasPlaying) {
+    video.play().catch(() => {});
+  }
+  
+  // Atualizar estado
+  videoPlayerState.currentQuality = quality;
+  
+  // Atualizar UI
+  const qualityLabel = document.getElementById('currentQualityLabel');
+  if (qualityLabel) {
+    qualityLabel.textContent = getQualityLabel(quality, videoPlayerState.availableQualities);
+  }
+  
+  // Atualizar opcoes ativas
+  document.querySelectorAll('.quality-option').forEach(opt => {
+    opt.classList.toggle('active', opt.dataset.quality === quality);
+  });
+  
+  // Fechar menu
+  toggleQualityMenu();
+}
+
+// Configurar eventos do player
+function setupVideoPlayerEvents() {
+  const video = document.getElementById('videoPlayer');
+  const container = document.getElementById('videoPlayerContainer');
+  
+  if (!video || !container) return;
+  
+  // Fechar menu ao clicar fora
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('qualityMenu');
+    const btn = document.getElementById('qualityBtn');
+    
+    if (menu && btn && videoPlayerState.isMenuOpen) {
+      if (!menu.contains(e.target) && !btn.contains(e.target)) {
+        videoPlayerState.isMenuOpen = false;
+        menu.classList.remove('show');
+        btn.querySelector('.icon').textContent = '▲';
+      }
+    }
+  });
+  
+  // Atalho de teclado para trocar qualidade
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('mediaDetailsModal').style.display !== 'flex') return;
+    
+    // Q para abrir menu de qualidade
+    if (e.key === 'q' || e.key === 'Q') {
+      toggleQualityMenu();
+    }
+  });
+}
+
+// Iniciar polling para verificar status de processamento
+function startProcessingPolling(mediaUuid) {
+  // Limpar polling anterior
+  if (videoPlayerState.pollingInterval) {
+    clearInterval(videoPlayerState.pollingInterval);
+  }
+  
+  // Verificar a cada 5 segundos
+  videoPlayerState.pollingInterval = setInterval(async () => {
+    await checkProcessingStatus(mediaUuid);
+  }, 5000);
+}
+
+// Parar polling
+function stopProcessingPolling() {
+  if (videoPlayerState.pollingInterval) {
+    clearInterval(videoPlayerState.pollingInterval);
+    videoPlayerState.pollingInterval = null;
+  }
+}
+
+// Verificar status de processamento
+async function checkProcessingStatus(mediaUuid) {
+  const token = localStorage.getItem('token');
+  
+  try {
+    const response = await fetch(`${server}/api/media/${mediaUuid}/processing-status`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    
+    // Atualizar status na UI
+    const statusContainer = document.getElementById('processingStatus');
+    if (statusContainer && data.processingStatus) {
+      statusContainer.outerHTML = renderProcessingStatus(data.processingStatus, mediaUuid);
+    }
+    
+    // Se completou atualizar player com novas qualidades
+    if (data.processingStatus === 'completed') {
+      stopProcessingPolling();
+      
+      // Atualizar dados na galeria
+      const mediaIndex = appState.mediaGallery.findIndex(m => m.uuid === mediaUuid);
+      if (mediaIndex >= 0) {
+        appState.mediaGallery[mediaIndex].processing_status = 'completed';
+        appState.mediaGallery[mediaIndex].video_versions = data.videoVersions;
+        appState.mediaGallery[mediaIndex].availableQualities = data.availableQualities;
+      }
+      
+      // Atualizar seletor de qualidade
+      if (data.availableQualities && data.availableQualities.length > 1) {
+        videoPlayerState.availableQualities = data.availableQualities;
+        
+        const controls = document.getElementById('videoControls');
+        if (controls) {
+          const menu = document.getElementById('qualityMenu');
+          if (menu) {
+            menu.innerHTML = renderQualityOptions(data.availableQualities, videoPlayerState.currentQuality);
+          }
+        }
+      }
+    }
+    
+    // Se falhou parar polling
+    if (data.processingStatus === 'failed') {
+      stopProcessingPolling();
+    }
+    
+  } catch (error) {
+    console.error('Erro ao verificar status:', error);
+  }
+}
+
+// Reprocessar video
+async function reprocessVideo(mediaUuid) {
+  const token = localStorage.getItem('token');
+  const btn = event.target;
+  
+  btn.disabled = true;
+  btn.textContent = 'Iniciando...';
+  
+  try {
+    const response = await fetch(`${server}/api/media/${mediaUuid}/reprocess`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error || 'Erro ao reprocessar');
+    }
+    
+    // Atualizar status
+    const statusContainer = document.getElementById('processingStatus');
+    if (statusContainer) {
+      statusContainer.outerHTML = renderProcessingStatus('processing', mediaUuid);
+    }
+    
+    // Iniciar polling
+    startProcessingPolling(mediaUuid);
+    
+  } catch (error) {
+    alert('Erro: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = '🔄 Tentar novamente';
+  }
+}
+
+// Fechar modal de detalhes e parar polling
+function closeMediaDetailsModalWithCleanup() {
+  stopProcessingPolling();
+  document.getElementById('mediaDetailsModal').style.display = 'none';
+}
