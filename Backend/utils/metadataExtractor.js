@@ -147,7 +147,6 @@ function parseExifBuffer(exifBuffer) {
   
   try {
     // O Sharp retorna o buffer EXIF bruto
-    // Vamos usar uma abordagem simplificada para extrair os dados mais comuns
     const exifString = exifBuffer.toString('binary');
     
     const exifData = {

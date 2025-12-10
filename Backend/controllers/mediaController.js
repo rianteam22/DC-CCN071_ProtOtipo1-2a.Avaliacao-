@@ -15,11 +15,8 @@ function createCaseInsensitiveSearch(field, value) {
   const dialect = sequelize.getDialect();
   
   if (dialect === 'postgres') {
-    // PostgreSQL suporta ILIKE nativamente
     return { [field]: { [Op.iLike]: `%${value}%` } };
   } else {
-    // SQLite usa LIKE que ja e case-insensitive por padrao para ASCII
-    // Mas para garantir usamos LOWER()
     return sequelize.where(
       sequelize.fn('LOWER', sequelize.col(field)),
       { [Op.like]: `%${value.toLowerCase()}%` }
