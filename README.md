@@ -457,7 +457,7 @@ Todas as rotas podem retornar os seguintes erros:
 
 A aplicação está hospedada em uma infraestrutura AWS configurada seguindo as melhores práticas de segurança e isolamento de rede:
 
-![Diagrama de Arquitetura AWS](./imgs/Misc.jpg)
+![Diagrama de Arquitetura AWS](./imgs/Misc2.jpg)
 
 O diagrama acima ilustra a topologia completa da infraestrutura, incluindo:
 - **Internet** conectada ao **Internet Gateway** para acesso público
