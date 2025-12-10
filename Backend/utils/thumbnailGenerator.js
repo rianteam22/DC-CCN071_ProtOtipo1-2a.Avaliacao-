@@ -19,28 +19,34 @@ function commandExists(cmd) {
   }
 }
 
-// Configurar caminhos do FFmpeg e FFprobe
+// Configurar caminhos do FFmpeg e FFprobe (apenas sistema)
 function configureFfmpeg() {
   const systemFfmpeg = commandExists('ffmpeg');
   const systemFfprobe = commandExists('ffprobe');
 
+  console.log('=== Verificando FFmpeg/FFprobe ===');
+  console.log('ffmpeg disponivel:', systemFfmpeg);
+  console.log('ffprobe disponivel:', systemFfprobe);
+
   if (systemFfmpeg && systemFfprobe) {
-    console.log('Usando FFmpeg FFprobe do sistema');
+    try {
+      const ffmpegVersion = execSync('ffmpeg -version').toString().split('\n')[0];
+      const ffprobeVersion = execSync('ffprobe -version').toString().split('\n')[0];
+      console.log('ffmpeg:', ffmpegVersion);
+      console.log('ffprobe:', ffprobeVersion);
+    } catch (err) {
+      console.log('Nao foi possivel obter versao:', err.message);
+    }
+    console.log('Usando FFmpeg/FFprobe do sistema');
+    console.log('==================================');
     return;
   }
 
-  console.log('FFmpeg FFprobe nao encontrados no sistema usando binarios estaticos');
-  try {
-    const ffmpegStatic = require('ffmpeg-static');
-    const ffprobeStatic = require('ffprobe-static');
-    
-    if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
-    if (ffprobeStatic && ffprobeStatic.path) ffmpeg.setFfprobePath(ffprobeStatic.path);
-    
-    console.log('Binarios estaticos configurados');
-  } catch (err) {
-    console.error('Erro ao configurar binarios estaticos', err.message);
-  }
+  console.log('==================================');
+  throw new Error(
+    'FFmpeg e FFprobe sao necessarios mas nao foram encontrados no sistema. ' +
+    'Instale com: sudo apt install ffmpeg (Ubuntu/Debian) ou sudo dnf install ffmpeg (Fedora)'
+  );
 }
 
 // Inicializar configuracao
