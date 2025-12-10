@@ -119,6 +119,35 @@ function getVideoDuration(s3Url) {
 }
 
 /**
+ * Helper - Verificar se arquivo de audio tem imagem embutida (album art)
+ */
+function checkAudioHasEmbeddedImage(s3Url) {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(s3Url, (err, metadata) => {
+      if (err) {
+        console.log('Erro ao verificar imagem embutida no audio:', err.message);
+        resolve(false);
+        return;
+      }
+      
+      // Procurar por stream de video que seria a imagem de capa
+      const videoStream = metadata.streams.find(stream => 
+        stream.codec_type === 'video' && 
+        (stream.codec_name === 'mjpeg' || stream.codec_name === 'png' || stream.codec_name === 'bmp')
+      );
+      
+      if (videoStream) {
+        console.log(`Imagem embutida encontrada: ${videoStream.codec_name} ${videoStream.width}x${videoStream.height}`);
+        resolve(true);
+      } else {
+        console.log('Nenhuma imagem embutida encontrada no audio');
+        resolve(false);
+      }
+    });
+  });
+}
+
+/**
  * Gerar thumbnail de imagem
  */
 async function generateImageThumbnail(s3Url) {
@@ -218,6 +247,105 @@ async function generateVideoThumbnail(s3Url) {
 }
 
 /**
+ * Gerar thumbnail de audio a partir da capa embutida (album art)
+ * Retorna null se nao houver imagem embutida
+ */
+async function generateAudioThumbnail(s3Url) {
+  return new Promise(async (resolve, reject) => {
+    let tempCoverPath = null;
+
+    try {
+      console.log(`Verificando capa embutida no audio`);
+
+      // Verificar se tem imagem embutida
+      const hasImage = await checkAudioHasEmbeddedImage(s3Url);
+      
+      if (!hasImage) {
+        console.log('Audio sem capa embutida');
+        resolve(null);
+        return;
+      }
+
+      const tempDir = os.tmpdir();
+      tempCoverPath = path.join(tempDir, `audio_cover_${Date.now()}.jpg`);
+
+      // Extrair a imagem embutida usando FFmpeg
+      // -an remove audio -vcodec copy copia o stream de video que e a imagem
+      ffmpeg(s3Url)
+        .outputOptions(['-an', '-vcodec', 'copy'])
+        .output(tempCoverPath)
+        .on('end', async () => {
+          try {
+            // Verificar se o arquivo foi criado
+            if (!fs.existsSync(tempCoverPath)) {
+              console.log('Arquivo de capa nao foi criado');
+              resolve(null);
+              return;
+            }
+
+            const coverBuffer = fs.readFileSync(tempCoverPath);
+            
+            // Verificar se tem conteudo
+            if (coverBuffer.length === 0) {
+              console.log('Arquivo de capa esta vazio');
+              fs.unlinkSync(tempCoverPath);
+              resolve(null);
+              return;
+            }
+
+            console.log(`Capa extraida com sucesso ${coverBuffer.length} bytes`);
+
+            // Redimensionar para thumbnail
+            const thumbnailBuffer = await sharp(coverBuffer)
+              .resize(THUMBNAIL_SIZE, THUMBNAIL_SIZE, {
+                fit: 'cover',
+                position: 'center'
+              })
+              .webp({ quality: THUMBNAIL_QUALITY })
+              .toBuffer();
+
+            fs.unlinkSync(tempCoverPath);
+
+            console.log(`Thumbnail de audio gerada ${thumbnailBuffer.length} bytes`);
+            resolve(thumbnailBuffer);
+
+          } catch (processError) {
+            console.error('Erro ao processar capa do audio:', processError.message);
+            if (tempCoverPath && fs.existsSync(tempCoverPath)) {
+              fs.unlinkSync(tempCoverPath);
+            }
+            resolve(null);
+          }
+        })
+        .on('error', (err) => {
+          console.log('Erro ao extrair capa do audio:', err.message);
+          if (tempCoverPath && fs.existsSync(tempCoverPath)) {
+            fs.unlinkSync(tempCoverPath);
+          }
+          // Nao rejeita apenas resolve null pois audio sem capa e valido
+          resolve(null);
+        })
+        .run();
+
+      // Timeout de 15 segundos para extracao de capa
+      setTimeout(() => {
+        if (tempCoverPath && fs.existsSync(tempCoverPath)) {
+          fs.unlinkSync(tempCoverPath);
+        }
+        resolve(null);
+      }, 15000);
+
+    } catch (error) {
+      console.error('Erro ao gerar thumbnail de audio:', error.message);
+      if (tempCoverPath && fs.existsSync(tempCoverPath)) {
+        fs.unlinkSync(tempCoverPath);
+      }
+      resolve(null);
+    }
+  });
+}
+
+/**
  * Upload de thumbnail para S3
  */
 async function uploadThumbnailToS3(thumbnailBuffer, userUuid, originalFilename) {
@@ -263,19 +391,26 @@ async function generateThumbnail({ mediaType, fileUrl, userUuid, filename, metad
   try {
     console.log(`\n=== Gerando thumbnail para ${mediaType} ${filename} ===`);
 
-    if (mediaType === 'audio') {
-      console.log('Tipo audio sem thumbnail');
-      return { thumbnail_url: null, thumbnail_s3_key: null };
-    }
-
-    let thumbnailBuffer;
+    let thumbnailBuffer = null;
 
     if (mediaType === 'image') {
       thumbnailBuffer = await generateImageThumbnail(fileUrl);
     } else if (mediaType === 'video') {
       thumbnailBuffer = await generateVideoThumbnail(fileUrl);
+    } else if (mediaType === 'audio') {
+      // Tentar extrair capa embutida do audio
+      thumbnailBuffer = await generateAudioThumbnail(fileUrl);
+      
+      if (!thumbnailBuffer) {
+        console.log('Audio sem capa embutida - sem thumbnail');
+        return { thumbnail_url: null, thumbnail_s3_key: null };
+      }
     } else {
       throw new Error(`Tipo de midia nao suportado ${mediaType}`);
+    }
+
+    if (!thumbnailBuffer) {
+      return { thumbnail_url: null, thumbnail_s3_key: null };
     }
 
     const { url, key } = await uploadThumbnailToS3(thumbnailBuffer, userUuid, filename);
@@ -297,6 +432,8 @@ module.exports = {
   generateThumbnail,
   generateImageThumbnail,
   generateVideoThumbnail,
+  generateAudioThumbnail,
   uploadThumbnailToS3,
-  downloadFromS3
+  downloadFromS3,
+  checkAudioHasEmbeddedImage
 };

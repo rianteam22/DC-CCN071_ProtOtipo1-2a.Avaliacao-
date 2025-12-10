@@ -1099,6 +1099,28 @@ textarea.form-input {
   }
 }
 
+.audio-player-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-16);
+}
+
+.audio-cover-art {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-border);
+}
+
+.audio-player-container .audio-preview {
+  width: 100%;
+  max-width: 400px;
+}
+
 /* ============================================
    VIDEO PLAYER COM SELETOR DE QUALIDADE
    ============================================ */

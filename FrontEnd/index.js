@@ -198,17 +198,21 @@ function renderMediaPreview(media) {
       break;
       
     case 'video':
-      // Usar o novo player com seletor de qualidade
       renderVideoPreviewWithQuality(media);
       break;
       
     case 'audio':
+      const audioArtwork = media.thumbnail_url 
+    ? `<img src="${media.thumbnail_url}" alt="Capa do album" class="audio-cover-art" />`
+    : `<div class="audio-large-icon">🎵</div>`;
       container.innerHTML = `
-        <div class="audio-large-icon">🎵</div>
+        <div class="audio-player-container">
+        ${audioArtwork}
         <audio controls class="media-details-preview audio-preview">
           <source src="${media.url}" type="${media.mimetype}">
           Seu navegador nao suporta o elemento de audio
         </audio>
+        </div>
       `;
       break;
       
