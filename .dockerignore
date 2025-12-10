@@ -1,0 +1,80 @@
+# ============================================
+# SGM - Docker Ignore
+# Arquivos ignorados no build da imagem
+# ============================================
+
+# Dependencias - serao instaladas no container
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE e editores
+.vscode/
+.idea/
+*.sublime-*
+*.code-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Arquivos de ambiente locais
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Banco de dados local
+*.sqlite
+*.sqlite3
+Backend/database/
+
+# Uploads locais
+uploads/
+Backend/uploads/
+
+# Testes
+test/
+tests/
+*.test.js
+*.spec.js
+coverage/
+.nyc_output/
+
+# Documentacao desnecessaria no container
+*.md
+!README.md
+docs/
+
+# Scripts de desenvolvimento
+testS3.js
+testUpload.js
+
+# Arquivos temporarios
+.tmp/
+.cache/
+*.tgz
+
+# Docker files nao precisam ir para dentro da imagem
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Nginx config vai em volume separado
+nginx/
+
+# Outros
+*.bak
+*.backup
+*.old
