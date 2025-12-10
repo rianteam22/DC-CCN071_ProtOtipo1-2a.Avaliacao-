@@ -6,7 +6,6 @@ const User = require('../models/User');
 
 require('dotenv').config();
 
-// Importar cliente S3 compartilhado
 const s3Client = require('./s3');
 
 // Configurar storage do Multer com S3
@@ -40,7 +39,7 @@ const storage = multerS3({
         return cb(new Error('Usuário não encontrado'));
       }
 
-      // Armazenar usuário no request para uso posterior
+      // Armazenar usuário no request 
       req.uploadUser = usuario;
 
       // Gerar chave do arquivo no S3: uploads/{uuid}/profile.{ext}

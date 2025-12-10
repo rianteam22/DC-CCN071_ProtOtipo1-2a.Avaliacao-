@@ -1,7 +1,7 @@
 const { S3Client } = require('@aws-sdk/client-s3');
 require('dotenv').config();
 
-// Debug das credenciais sem expor valores completos
+// Debug das credenciais 
 console.log('=== Configuracao AWS S3 ===');
 console.log('AWS_REGION:', process.env.AWS_REGION || 'NAO DEFINIDA');
 console.log('AWS_BUCKET_NAME:', process.env.AWS_BUCKET_NAME || 'NAO DEFINIDO');

@@ -1438,9 +1438,17 @@ document.getElementById('signupForm').addEventListener('submit', async (e) => {
   
   const email = document.getElementById('signupEmail').value.trim();
   const password = document.getElementById('signupPassword').value;
+  // NOVA LINHA: Pegar o valor da confirmação
+  const confirmPassword = document.getElementById('signupConfirmPassword').value;
 
-  if (!email || !password) {
+  if (!email || !password || !confirmPassword) {
     showError('signupError', 'Preencha todos os campos');
+    return;
+  }
+
+  // NOVA VERIFICAÇÃO: Checar se as senhas são iguais
+  if (password !== confirmPassword) {
+    showError('signupError', 'As senhas não coincidem');
     return;
   }
 
